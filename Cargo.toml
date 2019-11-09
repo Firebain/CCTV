@@ -1,0 +1,9 @@
+[package]
+name = "cctv_360_degrees"
+version = "0.1.0"
+authors = ["Maxim <maxim230898@yandex.ru>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
