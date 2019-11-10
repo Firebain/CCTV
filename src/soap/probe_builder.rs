@@ -1,4 +1,4 @@
-use xml::writer::{EventWriter, EmitterConfig};
+use xml::writer::{EventWriter, EmitterConfig, Result};
 
 use super::soap_builder::SoapBuilder;
 use super::writer_owner::WriterOwner;
@@ -36,50 +36,52 @@ impl<'a> WriterOwner<Bytes> for ProbeBuilder<'a> {
 }
 
 impl<'a> SoapBuilder for ProbeBuilder<'a> {
-    fn header(&mut self) {
+    fn header(&mut self) -> Result<()> {
         self.new_event("s:Header")
             .ns("a", "http://schemas.xmlsoap.org/ws/2004/08/addressing")
-            .write();
+            .write()?;
 
         self.new_event("a:Action")
             .attr("s:mustUnderstand", "1")
             .content("http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe")
             .end()
-            .write();
+            .write()?;
 
         let message_id = format!("uuid:{}", self.uuid);
 
         self.new_event("a:MessageID")
             .content(&message_id)
             .end()
-            .write();
+            .write()?;
 
         self.new_event("a:ReplyTo")
-            .write();
+            .write()?;
 
         self.new_event("a:Address")
             .content("http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous")
             .end()
-            .write();
+            .write()?;
 
-        self.end_event(); // ReplyTo
+        self.end_event()?; // ReplyTo
 
         self.new_event("a:To")
             .attr("s:mustUnderstand", "1")
             .content("urn:schemas-xmlsoap-org:ws:2005:04:discovery")
             .end()
-            .write();
+            .write()?;
 
-        self.end_event(); // Header
+        self.end_event()?; // Header
+
+        Ok(())
     }
 
-    fn body(&mut self) {
+    fn body(&mut self) -> Result<()> {
         self.new_event("s:Body")
-            .write();
+            .write()?;
 
         self.new_event("d:Probe")
             .ns("d", "http://schemas.xmlsoap.org/ws/2005/04/discovery")
-            .write();
+            .write()?;
 
         let types = format!("dp0:{}", self.device_type);
 
@@ -87,10 +89,12 @@ impl<'a> SoapBuilder for ProbeBuilder<'a> {
             .ns("dp0", "http://www.onvif.org/ver10/network/wsdl")
             .content(&types)
             .end()
-            .write();
+            .write()?;
 
-        self.end_event(); // Probe
+        self.end_event()?; // Probe
 
-        self.end_event(); // Body
+        self.end_event()?; // Body
+
+        Ok(())
     }
 }

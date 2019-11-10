@@ -1,3 +1,6 @@
+use xml::writer::Result as WriterResult;
+
+use super::SoapBuilderError;
 use super::event_builder::EventBuilder;
 use super::writer_owner::WriterOwner;
 
@@ -8,25 +11,25 @@ pub trait SoapBuilder: WriterOwner<Bytes> + Sized {
         EventBuilder::new(self.get_writer()).name(name)
     }
 
-    fn end_event(&mut self) {
-        EventBuilder::new(self.get_writer()).end().write();
+    fn end_event(&mut self) -> WriterResult<()> {
+        EventBuilder::new(self.get_writer()).end().write()
     }
 
-    fn header(&mut self);
+    fn header(&mut self) -> WriterResult<()>;
 
-    fn body(&mut self);
+    fn body(&mut self) -> WriterResult<()>;
 
-    fn build(mut self) -> String {
+    fn build(mut self) -> Result<String, SoapBuilderError> {
         self.new_event("s:Envelope")
             .ns("s", "http://www.w3.org/2003/05/soap-envelope")
-            .write();
+            .write()?;
 
-        self.header();
+        self.header()?;
 
-        self.body();
+        self.body()?;
 
-        self.end_event(); // Envelope
+        self.end_event()?; // Envelope
         
-        String::from_utf8(self.owned_writer().into_inner()).unwrap()
+        Ok(String::from_utf8(self.owned_writer().into_inner())?)
     }
 }
