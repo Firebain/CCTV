@@ -1,4 +1,4 @@
-use xml::writer::{EventWriter, EmitterConfig, Result};
+use xml::writer::{EventWriter, Result};
 
 use crate::soap::soap_builder::{Bytes, SoapBuilderCore, SoapBuilder};
 
@@ -10,12 +10,8 @@ pub struct ProbeBuilder<'a> {
 
 impl<'a> ProbeBuilder<'a> {
     pub fn new(device_type: &'a str, uuid: &'a str) -> Self {
-        let writer = EmitterConfig::new()
-            .perform_indent(true)
-            .create_writer(Vec::new());
-
         Self {
-            writer,
+            writer: Self::create_writer(),
             device_type,
             uuid
         }

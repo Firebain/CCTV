@@ -1,4 +1,4 @@
-use xml::writer::{EventWriter, EmitterConfig, Result};
+use xml::writer::{EventWriter, Result};
 
 use crate::soap::soap_builder::{Bytes, SoapBuilderCore, SoapBuilder};
 
@@ -8,12 +8,8 @@ pub struct MethodBuilder {
 
 impl MethodBuilder {
     pub fn new() -> Self {
-        let writer = EmitterConfig::new()
-            .perform_indent(true)
-            .create_writer(Vec::new());
-
         Self {
-            writer
+            writer: Self::create_writer()
         }
     }
 }
