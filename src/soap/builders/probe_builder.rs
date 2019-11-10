@@ -1,6 +1,6 @@
 use xml::writer::{EventWriter, EmitterConfig, Result};
 
-use crate::soap::soap_builder::{Bytes, SoapBuilder};
+use crate::soap::soap_builder::{Bytes, SoapBuilderCore, SoapBuilder};
 
 pub struct ProbeBuilder<'a> {
     writer: EventWriter<Bytes>,
@@ -22,7 +22,9 @@ impl<'a> ProbeBuilder<'a> {
     }
 }
 
-impl<'a> SoapBuilder for ProbeBuilder<'a> {
+impl<'a> SoapBuilder for ProbeBuilder<'a> {}
+
+impl<'a> SoapBuilderCore for ProbeBuilder<'a> {
     fn owned_writer(self) -> EventWriter<Bytes> {
         self.writer
     }

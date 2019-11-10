@@ -5,7 +5,7 @@ use crate::soap::event_builder::EventBuilder;
 
 pub type Bytes = Vec<u8>;
 
-pub trait SoapBuilder: Sized {
+pub trait SoapBuilderCore: Sized {
     fn owned_writer(self) -> EventWriter<Bytes>;
     
     fn get_writer(&mut self) -> &mut EventWriter<Bytes>;
@@ -21,7 +21,9 @@ pub trait SoapBuilder: Sized {
     fn header(&mut self) -> WriterResult<()>;
 
     fn body(&mut self) -> WriterResult<()>;
+}
 
+pub trait SoapBuilder: SoapBuilderCore {
     fn build(mut self) -> Result<String, SoapBuilderError> {
         self.new_event("s:Envelope")
             .ns("s", "http://www.w3.org/2003/05/soap-envelope")
