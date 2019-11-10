@@ -1,1 +1,1 @@
-pub use super::soap_builder::SoapBuilder;
+pub use super::builders::SoapBuilder;

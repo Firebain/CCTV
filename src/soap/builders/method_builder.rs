@@ -1,9 +1,6 @@
 use xml::writer::{EventWriter, EmitterConfig, Result};
 
-use super::soap_builder::SoapBuilder;
-use super::writer_owner::WriterOwner;
-
-type Bytes = Vec<u8>;
+use super::soap_builder::{Bytes, SoapBuilder};
 
 pub struct MethodBuilder {
     writer: EventWriter<Bytes>
@@ -21,7 +18,7 @@ impl<'a> MethodBuilder {
     }
 }
 
-impl<'a> WriterOwner<Bytes> for MethodBuilder {
+impl<'a> SoapBuilder for MethodBuilder {
     fn owned_writer(self) -> EventWriter<Bytes> {
         self.writer
     }
@@ -29,9 +26,7 @@ impl<'a> WriterOwner<Bytes> for MethodBuilder {
     fn get_writer(&mut self) -> &mut EventWriter<Bytes> {
         &mut self.writer
     }
-}
 
-impl<'a> SoapBuilder for MethodBuilder {
     fn header(&mut self) -> Result<()> {
         self.new_event("s:Header")
             .write()?;

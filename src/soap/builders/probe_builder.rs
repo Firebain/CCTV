@@ -1,9 +1,6 @@
 use xml::writer::{EventWriter, EmitterConfig, Result};
 
-use super::soap_builder::SoapBuilder;
-use super::writer_owner::WriterOwner;
-
-type Bytes = Vec<u8>;
+use super::soap_builder::{Bytes, SoapBuilder};
 
 pub struct ProbeBuilder<'a> {
     writer: EventWriter<Bytes>,
@@ -25,7 +22,7 @@ impl<'a> ProbeBuilder<'a> {
     }
 }
 
-impl<'a> WriterOwner<Bytes> for ProbeBuilder<'a> {
+impl<'a> SoapBuilder for ProbeBuilder<'a> {
     fn owned_writer(self) -> EventWriter<Bytes> {
         self.writer
     }
@@ -33,9 +30,7 @@ impl<'a> WriterOwner<Bytes> for ProbeBuilder<'a> {
     fn get_writer(&mut self) -> &mut EventWriter<Bytes> {
         &mut self.writer
     }
-}
 
-impl<'a> SoapBuilder for ProbeBuilder<'a> {
     fn header(&mut self) -> Result<()> {
         self.new_event("s:Header")
             .ns("a", "http://schemas.xmlsoap.org/ws/2004/08/addressing")

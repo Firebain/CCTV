@@ -1,12 +1,15 @@
-use xml::writer::Result as WriterResult;
+use xml::writer::{EventWriter, Result as WriterResult};
 
-use super::SoapBuilderError;
-use super::event_builder::EventBuilder;
-use super::writer_owner::WriterOwner;
+use crate::soap::SoapBuilderError;
+use crate::soap::event_builder::EventBuilder;
 
-type Bytes = Vec<u8>;
+pub type Bytes = Vec<u8>;
 
-pub trait SoapBuilder: WriterOwner<Bytes> + Sized {
+pub trait SoapBuilder: Sized {
+    fn owned_writer(self) -> EventWriter<Bytes>;
+    
+    fn get_writer(&mut self) -> &mut EventWriter<Bytes>;
+
     fn new_event<'a>(&'a mut self, name: &'a str) -> EventBuilder<'a, Bytes> {
         EventBuilder::new(self.get_writer()).name(name)
     }
