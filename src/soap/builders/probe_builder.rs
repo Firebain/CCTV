@@ -1,6 +1,6 @@
 use xml::writer::{EventWriter, EmitterConfig, Result};
 
-use super::soap_builder::{Bytes, SoapBuilder};
+use crate::soap::soap_builder::{Bytes, SoapBuilder};
 
 pub struct ProbeBuilder<'a> {
     writer: EventWriter<Bytes>,
