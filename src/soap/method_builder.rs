@@ -22,7 +22,7 @@ impl<'a> MethodBuilder {
 }
 
 impl<'a> WriterOwner<Bytes> for MethodBuilder {
-    fn borrow_writer(self) -> EventWriter<Bytes> {
+    fn owned_writer(self) -> EventWriter<Bytes> {
         self.writer
     }
 

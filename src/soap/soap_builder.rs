@@ -27,6 +27,6 @@ pub trait SoapBuilder: WriterOwner<Bytes> + Sized {
 
         self.end_event(); // Envelope
         
-        String::from_utf8(self.borrow_writer().into_inner()).unwrap()
+        String::from_utf8(self.owned_writer().into_inner()).unwrap()
     }
 }

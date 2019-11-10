@@ -26,7 +26,7 @@ impl<'a> ProbeBuilder<'a> {
 }
 
 impl<'a> WriterOwner<Bytes> for ProbeBuilder<'a> {
-    fn borrow_writer(self) -> EventWriter<Bytes> {
+    fn owned_writer(self) -> EventWriter<Bytes> {
         self.writer
     }
 
