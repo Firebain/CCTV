@@ -3,19 +3,19 @@ use xml::writer::{EventWriter, EmitterConfig};
 use super::soap_builder::SoapBuilder;
 use super::writer_owner::WriterOwner;
 
+type Bytes = Vec<u8>;
+
 pub struct ProbeBuilder<'a> {
-    writer: EventWriter<Vec<u8>>,
+    writer: EventWriter<Bytes>,
     device_type: &'a str, 
     uuid: &'a str
 }
 
 impl<'a> ProbeBuilder<'a> {
     pub fn new(device_type: &'a str, uuid: &'a str) -> Self {
-        let buffer = Vec::new();
-
         let writer = EmitterConfig::new()
             .perform_indent(true)
-            .create_writer(buffer);
+            .create_writer(Vec::new());
 
         Self {
             writer,
@@ -25,12 +25,12 @@ impl<'a> ProbeBuilder<'a> {
     }
 }
 
-impl<'a> WriterOwner for ProbeBuilder<'a> {
-    fn borrow_writer(self) -> EventWriter<Vec<u8>> {
+impl<'a> WriterOwner<Bytes> for ProbeBuilder<'a> {
+    fn borrow_writer(self) -> EventWriter<Bytes> {
         self.writer
     }
 
-    fn get_writer(&mut self) -> &mut EventWriter<Vec<u8>> {
+    fn get_writer(&mut self) -> &mut EventWriter<Bytes> {
         &mut self.writer
     }
 }

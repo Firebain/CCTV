@@ -1,7 +1,8 @@
 use xml::writer::{EventWriter, XmlEvent};
+use std::io::Write;
 
-pub struct EventBuilder<'a> {
-    writer: &'a mut EventWriter<Vec<u8>>,
+pub struct EventBuilder<'a, W: Write> {
+    writer: &'a mut EventWriter<W>,
     name: Option<&'a str>,
     ns: Option<(&'a str, &'a str)>,
     attr: Option<(&'a str, &'a str)>,
@@ -9,8 +10,8 @@ pub struct EventBuilder<'a> {
     end: bool
 }
 
-impl<'a> EventBuilder<'a> {
-    pub fn new(writer: &'a mut EventWriter<Vec<u8>>) -> Self {
+impl<'a, W: Write> EventBuilder<'a, W> {
+    pub fn new(writer: &'a mut EventWriter<W>) -> Self {
         Self {
             writer,
             name: None,

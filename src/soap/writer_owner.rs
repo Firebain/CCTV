@@ -1,7 +1,8 @@
 use xml::writer::EventWriter;
+use std::io::Write;
 
-pub trait WriterOwner {
-    fn borrow_writer(self) -> EventWriter<Vec<u8>>;
+pub trait WriterOwner<W: Write> {
+    fn borrow_writer(self) -> EventWriter<W>;
     
-    fn get_writer(&mut self) -> &mut EventWriter<Vec<u8>>;
+    fn get_writer(&mut self) -> &mut EventWriter<W>;
 }

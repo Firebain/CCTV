@@ -1,8 +1,10 @@
 use super::event_builder::EventBuilder;
 use super::writer_owner::WriterOwner;
 
-pub trait SoapBuilder: WriterOwner + Sized {
-    fn new_event<'a>(&'a mut self, name: &'a str) -> EventBuilder<'a> {
+type Bytes = Vec<u8>;
+
+pub trait SoapBuilder: WriterOwner<Bytes> + Sized {
+    fn new_event<'a>(&'a mut self, name: &'a str) -> EventBuilder<'a, Bytes> {
         EventBuilder::new(self.get_writer()).name(name)
     }
 
