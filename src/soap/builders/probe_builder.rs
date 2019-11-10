@@ -1,11 +1,11 @@
 use xml::writer::{EventWriter, Result};
 
-use crate::soap::soap_builder::{Bytes, SoapBuilderCore, SoapBuilder};
+use crate::soap::soap_builder::{Bytes, SoapBuilder, SoapBuilderCore};
 
 pub struct ProbeBuilder<'a> {
     writer: EventWriter<Bytes>,
-    device_type: &'a str, 
-    uuid: &'a str
+    device_type: &'a str,
+    uuid: &'a str,
 }
 
 impl<'a> ProbeBuilder<'a> {
@@ -13,7 +13,7 @@ impl<'a> ProbeBuilder<'a> {
         Self {
             writer: Self::create_writer(),
             device_type,
-            uuid
+            uuid,
         }
     }
 }
@@ -47,8 +47,7 @@ impl<'a> SoapBuilderCore for ProbeBuilder<'a> {
             .end()
             .write()?;
 
-        self.new_event("a:ReplyTo")
-            .write()?;
+        self.new_event("a:ReplyTo").write()?;
 
         self.new_event("a:Address")
             .content("http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous")
@@ -69,8 +68,7 @@ impl<'a> SoapBuilderCore for ProbeBuilder<'a> {
     }
 
     fn body(&mut self) -> Result<()> {
-        self.new_event("s:Body")
-            .write()?;
+        self.new_event("s:Body").write()?;
 
         self.new_event("d:Probe")
             .ns("d", "http://schemas.xmlsoap.org/ws/2005/04/discovery")

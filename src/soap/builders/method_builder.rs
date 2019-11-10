@@ -1,15 +1,15 @@
 use xml::writer::{EventWriter, Result};
 
-use crate::soap::soap_builder::{Bytes, SoapBuilderCore, SoapBuilder};
+use crate::soap::soap_builder::{Bytes, SoapBuilder, SoapBuilderCore};
 
 pub struct MethodBuilder {
-    writer: EventWriter<Bytes>
+    writer: EventWriter<Bytes>,
 }
 
 impl MethodBuilder {
     pub fn new() -> Self {
         Self {
-            writer: Self::create_writer()
+            writer: Self::create_writer(),
         }
     }
 }
@@ -26,15 +26,16 @@ impl SoapBuilderCore for MethodBuilder {
     }
 
     fn header(&mut self) -> Result<()> {
-        self.new_event("s:Header")
-            .write()?;
+        self.new_event("s:Header").write()?;
 
         self.new_event("wsse:Security")
-            .ns("wsse", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd")
+            .ns(
+                "wsse",
+                "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd",
+            )
             .write()?;
 
-        self.new_event("wsse:UsernameToken")
-            .write()?;
+        self.new_event("wsse:UsernameToken").write()?;
 
         self.new_event("wsse:Username")
             .content("admin")
@@ -69,8 +70,7 @@ impl SoapBuilderCore for MethodBuilder {
     }
 
     fn body(&mut self) -> Result<()> {
-        self.new_event("s:Body")
-            .write()?;
+        self.new_event("s:Body").write()?;
 
         self.new_event("ns0:GetStreamUrl")
             .ns("ns0", "http://www.onvif.org/ver10/media/wsdl")
@@ -85,8 +85,7 @@ impl SoapBuilderCore for MethodBuilder {
             .end()
             .write()?;
 
-        self.new_event("ns1:Transport")
-            .write()?;
+        self.new_event("ns1:Transport").write()?;
 
         self.new_event("ns1:Protocol")
             .content("UDP")

@@ -1,7 +1,7 @@
-mod event_builder;
-mod soap_builder;
 mod builders;
 mod error;
+mod event_builder;
+mod soap_builder;
 
 pub mod prelude;
 

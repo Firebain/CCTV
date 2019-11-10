@@ -1,5 +1,5 @@
-use xml::writer::{EventWriter, XmlEvent, Result};
 use std::io::Write;
+use xml::writer::{EventWriter, Result, XmlEvent};
 
 pub struct EventBuilder<'a, W: Write> {
     writer: &'a mut EventWriter<W>,
@@ -7,7 +7,7 @@ pub struct EventBuilder<'a, W: Write> {
     ns: Option<(&'a str, &'a str)>,
     attr: Option<(&'a str, &'a str)>,
     content: Option<&'a str>,
-    end: bool
+    end: bool,
 }
 
 impl<'a, W: Write> EventBuilder<'a, W> {
@@ -18,7 +18,7 @@ impl<'a, W: Write> EventBuilder<'a, W> {
             ns: None,
             attr: None,
             content: None,
-            end: false
+            end: false,
         }
     }
 
@@ -58,12 +58,12 @@ impl<'a, W: Write> EventBuilder<'a, W> {
 
             let element = match self.ns {
                 Some(ns) => element.ns(ns.0, ns.1),
-                None => element
+                None => element,
             };
 
             let element = match self.attr {
                 Some(attr) => element.attr(attr.0, attr.1),
-                None => element
+                None => element,
             };
 
             self.writer.write(element)?;

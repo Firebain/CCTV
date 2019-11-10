@@ -1,7 +1,7 @@
 use xml::writer::{EmitterConfig, EventWriter, Result as WriterResult};
 
-use crate::soap::SoapBuilderError;
 use crate::soap::event_builder::EventBuilder;
+use crate::soap::SoapBuilderError;
 
 pub type Bytes = Vec<u8>;
 
@@ -13,7 +13,7 @@ pub trait SoapBuilderCore: Sized {
     }
 
     fn owned_writer(self) -> EventWriter<Bytes>;
-    
+
     fn get_writer(&mut self) -> &mut EventWriter<Bytes>;
 
     fn new_event<'a>(&'a mut self, name: &'a str) -> EventBuilder<'a, Bytes> {
@@ -40,7 +40,7 @@ pub trait SoapBuilder: SoapBuilderCore {
         self.body()?;
 
         self.end_event()?; // Envelope
-        
+
         Ok(String::from_utf8(self.owned_writer().into_inner())?)
     }
 }

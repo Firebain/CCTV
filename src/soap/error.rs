@@ -1,12 +1,12 @@
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 use std::string::FromUtf8Error;
 use xml::writer::Error as WriterError;
 
 #[derive(Debug)]
 pub enum SoapBuilderError {
     WriterError(WriterError),
-    FromUtf8Error(FromUtf8Error)
+    FromUtf8Error(FromUtf8Error),
 }
 
 impl From<WriterError> for SoapBuilderError {
@@ -30,10 +30,8 @@ impl fmt::Display for SoapBuilderError {
 impl Error for SoapBuilderError {
     fn description(&self) -> &str {
         match self {
-            Self::WriterError(err) =>
-                err.description(),
-            Self::FromUtf8Error(err) =>
-                err.description()
+            Self::WriterError(err) => err.description(),
+            Self::FromUtf8Error(err) => err.description(),
         }
     }
 }
