@@ -1,15 +1,13 @@
-use xml::writer::XmlEvent;
-
 use super::event_builder::EventBuilder;
 use super::writer_owner::WriterOwner;
 
 pub trait SoapBuilder: WriterOwner + Sized {
     fn new_event<'a>(&'a mut self, name: &'a str) -> EventBuilder<'a> {
-        EventBuilder::new(self.get_writer(), name)
+        EventBuilder::new(self.get_writer()).name(name)
     }
 
     fn end_event(&mut self) {
-        self.get_writer().write(XmlEvent::end_element()).unwrap();
+        EventBuilder::new(self.get_writer()).end().write();
     }
 
     fn header(&mut self);

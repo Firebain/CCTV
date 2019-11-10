@@ -2,7 +2,7 @@ use xml::writer::{EventWriter, XmlEvent};
 
 pub struct EventBuilder<'a> {
     writer: &'a mut EventWriter<Vec<u8>>,
-    name: &'a str,
+    name: Option<&'a str>,
     ns: Option<(&'a str, &'a str)>,
     attr: Option<(&'a str, &'a str)>,
     content: Option<&'a str>,
@@ -10,15 +10,21 @@ pub struct EventBuilder<'a> {
 }
 
 impl<'a> EventBuilder<'a> {
-    pub fn new(writer: &'a mut EventWriter<Vec<u8>>, name: &'a str) -> Self {
+    pub fn new(writer: &'a mut EventWriter<Vec<u8>>) -> Self {
         Self {
             writer,
-            name,
+            name: None,
             ns: None,
             attr: None,
             content: None,
             end: false
         }
+    }
+
+    pub fn name(mut self, name: &'a str) -> Self {
+        self.name = Some(name);
+
+        self
     }
 
     pub fn ns(mut self, prefix: &'a str, url: &'a str) -> Self {
@@ -46,22 +52,24 @@ impl<'a> EventBuilder<'a> {
     }
 
     pub fn write(self) {
-        let element = XmlEvent::start_element(self.name);
+        if let Some(name) = self.name {
+            let element = XmlEvent::start_element(name);
 
-        let element = match self.ns {
-            Some(ns) => element.ns(ns.0, ns.1),
-            None => element
-        };
+            let element = match self.ns {
+                Some(ns) => element.ns(ns.0, ns.1),
+                None => element
+            };
 
-        let element = match self.attr {
-            Some(attr) => element.attr(attr.0, attr.1),
-            None => element
-        };
+            let element = match self.attr {
+                Some(attr) => element.attr(attr.0, attr.1),
+                None => element
+            };
 
-        self.writer.write(element).unwrap();
+            self.writer.write(element).unwrap();
 
-        if let Some(content) = self.content {
-            self.writer.write(XmlEvent::characters(content)).unwrap();
+            if let Some(content) = self.content {
+                self.writer.write(XmlEvent::characters(content)).unwrap();
+            }
         }
 
         if self.end {
