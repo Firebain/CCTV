@@ -1,15 +1,16 @@
 use xml::writer::{EventWriter, Result};
+use uuid::Uuid;
 
 use crate::soap::soap_builder::{Bytes, SoapBuilder, SoapBuilderCore};
 
 pub struct ProbeBuilder<'a> {
     writer: EventWriter<Bytes>,
     device_type: &'a str,
-    uuid: &'a str,
+    uuid: Uuid,
 }
 
 impl<'a> ProbeBuilder<'a> {
-    pub fn new(device_type: &'a str, uuid: &'a str) -> Self {
+    pub fn new(device_type: &'a str, uuid: Uuid) -> Self {
         Self {
             writer: Self::create_writer(),
             device_type,
