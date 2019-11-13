@@ -7,6 +7,7 @@ pub struct MethodBuilder {
 }
 
 impl MethodBuilder {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             writer: Self::create_writer(),
