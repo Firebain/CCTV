@@ -1,5 +1,5 @@
-mod method_builder;
+mod get_capabilities_builder;
 mod probe_builder;
 
-pub use method_builder::MethodBuilder;
+pub use get_capabilities_builder::GetCapabilitiesBuilder;
 pub use probe_builder::ProbeBuilder;
