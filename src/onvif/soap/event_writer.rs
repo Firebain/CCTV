@@ -21,7 +21,7 @@ impl<'a> EventWriter {
         EventBuilder::new(&mut self.0).end().write()
     }
 
-    pub fn to_string(self) -> String {
+    pub fn into_string(self) -> String {
         let buffer = self.0.into_inner();
 
         String::from_utf8(buffer).expect("Xml contains non utf-8 characters")

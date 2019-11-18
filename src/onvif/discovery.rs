@@ -5,8 +5,8 @@ use std::time::Duration;
 use uuid::Uuid;
 use xml::reader::{Error, EventReader, XmlEvent};
 
-use super::soap::Client;
 use super::soap::headers::Probe;
+use super::soap::Client;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
 
@@ -89,15 +89,17 @@ fn multicast_probe_messages(socket: &UdpSocket) {
         .iter()
         .map(|device_type| {
             let client = Client {
-                header: Probe::new(Uuid::new_v4())
+                header: Probe::new(Uuid::new_v4()),
             };
-            
+
             client.build(|writer| {
-                writer.new_event("d:Probe")
+                writer
+                    .new_event("d:Probe")
                     .ns("d", "http://schemas.xmlsoap.org/ws/2005/04/discovery")
                     .write()?;
 
-                writer.new_event("d:Types")
+                writer
+                    .new_event("d:Types")
                     .ns("dp0", "http://www.onvif.org/ver10/network/wsdl")
                     .content(&format!("dp0:{}", device_type))
                     .end()
@@ -143,7 +145,7 @@ fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
 
 fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>, Error> {
     let mut probe_matches = HashMap::new();
-    
+
     for response in responses {
         let mut parser = EventReader::from_str(&response);
         loop {

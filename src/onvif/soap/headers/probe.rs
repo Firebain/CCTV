@@ -1,18 +1,16 @@
-use xml::writer::Result;
 use uuid::Uuid;
+use xml::writer::Result;
 
 use super::HeaderBuilder;
 use crate::onvif::soap::event_writer::EventWriter;
 
 pub struct Probe {
-    uuid: Uuid
+    uuid: Uuid,
 }
 
 impl Probe {
     pub fn new(uuid: Uuid) -> Self {
-        Self {
-            uuid
-        }
+        Self { uuid }
     }
 }
 
