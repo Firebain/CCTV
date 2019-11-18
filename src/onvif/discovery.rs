@@ -142,24 +142,24 @@ fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
 }
 
 fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>, Error> {
-    let response = responses.first().unwrap();
-
-    let mut parser = EventReader::from_str(&response);
-
     let mut probe_matches = HashMap::new();
-    loop {
-        let event = parser.next()?;
+    
+    for response in responses {
+        let mut parser = EventReader::from_str(&response);
+        loop {
+            let event = parser.next()?;
 
-        match event {
-            XmlEvent::StartElement { name, .. } => {
-                if let "ProbeMatch" = name.local_name.as_str() {
-                    let (urn, probe_match) = parse_probe_match(&mut parser)?;
+            match event {
+                XmlEvent::StartElement { name, .. } => {
+                    if let "ProbeMatch" = name.local_name.as_str() {
+                        let (urn, probe_match) = parse_probe_match(&mut parser)?;
 
-                    probe_matches.insert(urn, probe_match);
+                        probe_matches.insert(urn, probe_match);
+                    }
                 }
+                XmlEvent::EndDocument => break,
+                _ => {}
             }
-            XmlEvent::EndDocument => break,
-            _ => {}
         }
     }
 
