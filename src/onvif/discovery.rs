@@ -5,7 +5,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use xml::reader::{Error, EventReader, XmlEvent};
 
-use super::soap::headers::Header;
+use super::soap::headers::Probe;
 use super::soap::Client;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
@@ -89,9 +89,9 @@ fn multicast_probe_messages(socket: &UdpSocket) {
     let messages: Vec<String> = DEVICE_TYPES
         .iter()
         .map(|device_type| {
-            let mut client = Client::new();
-
-            client.header(Header::Probe(Uuid::new_v4().into()));
+            let client = Client {
+                header: Probe::new(Uuid::new_v4())
+            };
 
             client.build(|writer| {
                 writer

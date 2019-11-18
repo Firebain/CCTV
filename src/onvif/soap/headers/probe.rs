@@ -2,13 +2,22 @@ use uuid::Uuid;
 use xml::writer::Result;
 
 use crate::onvif::soap::event_writer::EventWriter;
+use super::HeaderBuilder;
 
 pub struct Probe {
     uuid: Uuid,
 }
 
 impl Probe {
-    pub fn build(&self, writer: &mut EventWriter) -> Result<()> {
+    pub fn new(uuid: Uuid) -> Self {
+        Self {
+            uuid
+        }
+    }
+}
+
+impl HeaderBuilder for Probe {
+    fn build_header(&self, writer: &mut EventWriter) -> Result<()> {
         writer
             .new_event("s:Header")
             .ns("a", "http://schemas.xmlsoap.org/ws/2004/08/addressing")
@@ -49,13 +58,5 @@ impl Probe {
         writer.end_event()?; // Header
 
         Ok(())
-    }
-}
-
-impl From<Uuid> for Probe {
-    fn from(uuid: Uuid) -> Self {
-        Self {
-            uuid
-        }
     }
 }

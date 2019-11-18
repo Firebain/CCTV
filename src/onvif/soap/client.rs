@@ -1,25 +1,13 @@
 use xml::writer::Result;
 
 use super::event_writer::EventWriter;
-use super::headers::Header;
+use super::headers::HeaderBuilder;
 
-pub struct Client {
-    pub header: Header,
+pub struct Client<HB: HeaderBuilder> {
+    pub header: HB,
 }
 
-impl Client {
-    pub fn new() -> Self {
-        Self {
-            header: Header::None
-        }
-    }
-
-    pub fn header(&mut self, header: Header) -> &mut Self {
-        self.header = header;
-
-        self
-    }
-
+impl<HB: HeaderBuilder> Client<HB> {
     fn try_build<BF>(&self, body: BF) -> Result<String>
     where
         BF: Fn(&mut EventWriter) -> Result<()>,
@@ -31,7 +19,7 @@ impl Client {
             .ns("s", "http://www.w3.org/2003/05/soap-envelope")
             .write()?;
 
-        self.header.build(&mut writer)?;
+        self.header.build_header(&mut writer)?;
 
         writer.new_event("s:Body").write()?;
 
