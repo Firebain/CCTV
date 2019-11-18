@@ -1,12 +1,6 @@
 mod onvif;
 
-// use soap::prelude::*;
-// use soap::GetCapabilitiesBuilder;
-
 fn main() {
-    let a = onvif::discovery();
-
-    println!("{:?}", a);
     // const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
 
     // let xml = GetCapabilitiesBuilder::new("admin".to_string(), "admin1234".to_string()).build().unwrap();

@@ -58,6 +58,7 @@ impl ProbeMatchBuilder {
     }
 }
 
+#[allow(dead_code)]
 pub fn discovery() -> Vec<ProbeMatch> {
     let socket = create_socket();
 
@@ -88,9 +89,9 @@ fn multicast_probe_messages(socket: &UdpSocket) {
     let messages: Vec<String> = DEVICE_TYPES
         .iter()
         .map(|device_type| {
-            let client = Client {
-                header: Probe::new(Uuid::new_v4()),
-            };
+            let mut client = Client::new();
+
+            client.header(Probe::new(Uuid::new_v4()));
 
             client.build(|writer| {
                 writer

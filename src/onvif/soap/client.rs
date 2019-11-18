@@ -4,10 +4,22 @@ use super::event_writer::EventWriter;
 use super::headers::HeaderBuilder;
 
 pub struct Client<HB: HeaderBuilder> {
-    pub header: HB,
+    pub header: Option<HB>,
 }
 
 impl<HB: HeaderBuilder> Client<HB> {
+    pub fn new() -> Self {
+        Self {
+            header: None
+        }
+    }
+
+    pub fn header(&mut self, header: HB) -> &mut Self {
+        self.header = Some(header);
+
+        self
+    }
+
     fn try_build<BF>(&self, body: BF) -> Result<String>
     where
         BF: Fn(&mut EventWriter) -> Result<()>,
@@ -19,7 +31,9 @@ impl<HB: HeaderBuilder> Client<HB> {
             .ns("s", "http://www.w3.org/2003/05/soap-envelope")
             .write()?;
 
-        self.header.build_header(&mut writer)?;
+        if let Some(header) = &self.header {
+            header.build_header(&mut writer)?;
+        }
 
         writer.new_event("s:Body").write()?;
 
