@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
 use uuid::Uuid;
-use xml::reader::{Error, EventReader, XmlEvent};
+use xml::reader::{Result, EventReader, XmlEvent};
 
 use super::soap::headers::Probe;
 use super::soap::Client;
@@ -144,7 +144,7 @@ fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
     responses
 }
 
-fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>, Error> {
+fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>> {
     let mut probe_matches = HashMap::new();
 
     for response in responses {
@@ -171,7 +171,7 @@ fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>, Error> {
     Ok(probe_matches)
 }
 
-fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> Result<(String, ProbeMatch), Error> {
+fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> Result<(String, ProbeMatch)> {
     let mut probe_match_builder = ProbeMatchBuilder::new();
 
     loop {

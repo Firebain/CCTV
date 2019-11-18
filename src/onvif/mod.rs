@@ -1,6 +1,7 @@
 mod discovery;
-// mod camera;
+mod camera;
+mod services;
 mod soap;
 
 pub use discovery::discovery;
-// pub use camera::Camera;
+pub use camera::Camera;

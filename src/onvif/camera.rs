@@ -1,4 +1,7 @@
-use super::soap::Client;
+use reqwest::Result;
+
+use super::services::Devicemgmt;
+use super::services::prelude::*;
 
 pub struct Camera { 
     xaddr: String,
@@ -7,36 +10,16 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(xaddr: String, username: String, password: String) -> Self {
-        Self::get_capabilities(&xaddr);
+    pub fn new(xaddr: String, username: String, password: String) -> Result<Self> {
+        let devicemgmt = Devicemgmt::new(&xaddr, &username, &password);
 
-        Self {
+        let capabilities = devicemgmt.get_capabilities()?;
+
+        Ok(Self {
             xaddr,
             username,
             password
-        }
-    }
-
-    fn get_capabilities(xaddr: &String) {
-        let client = Client::new();
-
-        let xml = client.build(|writer| {
-            writer.new_event("ns0:GetCapabilities")
-                .ns("ns0", "http://www.onvif.org/ver10/device/wsdl")
-                .end()
-                .write()?;
-
-            Ok(())
-        });
-
-        // let mut req = reqwest::Client::new().post(XADDR)
-        //     .body(xml)
-        //     .send()
-        //     .unwrap();
-    
-        // let res = req.text().unwrap();
-    
-        println!("{}", xml);
+        })
     }
 }
 

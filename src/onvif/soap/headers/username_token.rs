@@ -6,13 +6,13 @@ use xml::writer::Result;
 use super::HeaderBuilder;
 use crate::onvif::soap::event_writer::EventWriter;
 
-pub struct UsernameToken {
-    username: String,
-    password: String,
+pub struct UsernameToken<'a> {
+    username: &'a String,
+    password: &'a String,
 }
 
-impl UsernameToken {
-    pub fn new(username: String, password: String) -> Self {
+impl<'a> UsernameToken<'a> {
+    pub fn new(username: &'a String, password: &'a String) -> Self {
         Self { username, password }
     }
 
@@ -38,7 +38,7 @@ impl UsernameToken {
     }
 }
 
-impl HeaderBuilder for UsernameToken {
+impl<'a> HeaderBuilder for UsernameToken<'a> {
     fn build_header(&self, writer: &mut EventWriter) -> Result<()> {
         let (password, nonce, date) = self.compute_wsse_fields();
 
