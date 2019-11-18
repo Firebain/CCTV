@@ -1,14 +1,14 @@
 use xml::writer::Result;
 
 use super::headers::HeaderBuilder;
-use super::EventWriter;
+use super::event_writer::EventWriter;
 
 pub struct Client<HB: HeaderBuilder> {
     pub header: HB
 }
 
 impl<HB: HeaderBuilder> Client<HB> {
-    fn try_build<BF>(&self, body_builder: BF) -> Result<String> where
+    fn try_build<BF>(&self, body: BF) -> Result<String> where
         BF: Fn(&mut EventWriter) -> Result<()> 
     {
         let mut writer = EventWriter::new();
@@ -23,7 +23,7 @@ impl<HB: HeaderBuilder> Client<HB> {
 
         writer.new_event("s:Body").write()?;
         
-        body_builder(&mut writer)?;
+        body(&mut writer)?;
 
         writer.end_event()?; // Body
 
