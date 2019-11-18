@@ -5,8 +5,8 @@ use std::time::Duration;
 use uuid::Uuid;
 use xml::reader::{Error, EventReader, XmlEvent};
 
-use crate::soap::prelude::*;
-use crate::soap::{ProbeBuilder, SoapBuilderError};
+use super::soap::Client;
+use super::soap::headers::Probe;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
 
@@ -85,11 +85,30 @@ fn multicast_probe_messages(socket: &UdpSocket) {
         .parse()
         .expect("Error while parsing multicast addr");
 
-    let messages = DEVICE_TYPES
+    let messages: Vec<String> = DEVICE_TYPES
         .iter()
-        .map(|device_type| ProbeBuilder::new(device_type, Uuid::new_v4()).build())
-        .collect::<Result<Vec<String>, SoapBuilderError>>()
-        .expect("Error while building Probe XML");
+        .map(|device_type| {
+            let client = Client {
+                header: Probe::new(Uuid::new_v4())
+            };
+            
+            client.build(|writer| {
+                writer.new_event("d:Probe")
+                    .ns("d", "http://schemas.xmlsoap.org/ws/2005/04/discovery")
+                    .write()?;
+
+                writer.new_event("d:Types")
+                    .ns("dp0", "http://www.onvif.org/ver10/network/wsdl")
+                    .content(&format!("dp0:{}", device_type))
+                    .end()
+                    .write()?;
+
+                writer.end_event()?; // Probe
+
+                Ok(())
+            })
+        })
+        .collect();
 
     for message in messages {
         for _ in 0..RETRY_TIMES {

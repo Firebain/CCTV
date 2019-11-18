@@ -1,4 +1,3 @@
-mod soap;
 mod onvif;
 
 // use soap::prelude::*;
