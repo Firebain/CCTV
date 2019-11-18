@@ -1,16 +1,42 @@
-struct Camera { 
+use super::soap::Client;
+
+pub struct Camera { 
     xaddr: String,
     username: String,
     password: String
 }
 
 impl Camera {
-    fn new(xaddr: String, username: String, password: String) -> Self {
+    pub fn new(xaddr: String, username: String, password: String) -> Self {
+        Self::get_capabilities(&xaddr);
+
         Self {
             xaddr,
             username,
             password
         }
+    }
+
+    fn get_capabilities(xaddr: &String) {
+        let client = Client::new();
+
+        let xml = client.build(|writer| {
+            writer.new_event("ns0:GetCapabilities")
+                .ns("ns0", "http://www.onvif.org/ver10/device/wsdl")
+                .end()
+                .write()?;
+
+            Ok(())
+        });
+
+        // let mut req = reqwest::Client::new().post(XADDR)
+        //     .body(xml)
+        //     .send()
+        //     .unwrap();
+    
+        // let res = req.text().unwrap();
+    
+        println!("{}", xml);
     }
 }
 
