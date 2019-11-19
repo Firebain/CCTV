@@ -1,8 +1,8 @@
-mod discovery;
 mod camera;
+mod discovery;
+pub mod prelude;
 mod services;
 mod soap;
-pub mod prelude;
 
-pub use discovery::discovery;
 pub use camera::Camera;
+pub use discovery::discovery;

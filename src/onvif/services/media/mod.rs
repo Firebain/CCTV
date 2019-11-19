@@ -1,5 +1,5 @@
-pub mod prelude;
 mod methods;
+pub mod prelude;
 
 use crate::onvif::services::service::Service;
 use crate::onvif::soap::headers::UsernameToken;
@@ -10,15 +10,12 @@ use methods::GetStreamUrl;
 
 pub struct Media<'a> {
     xaddr: &'a String,
-    wsse_client: &'a Client<UsernameToken>
+    wsse_client: &'a Client<UsernameToken>,
 }
 
 impl<'a> Media<'a> {
     pub fn new(xaddr: &'a String, wsse_client: &'a Client<UsernameToken>) -> Self {
-        Self {
-            xaddr,
-            wsse_client
-        }
+        Self { xaddr, wsse_client }
     }
 }
 
@@ -32,5 +29,5 @@ impl<'a> Service for Media<'a> {
     }
 }
 
-impl<'a> GetProfiles for Media<'a> { }
-impl<'a> GetStreamUrl for Media<'a> { }
+impl<'a> GetProfiles for Media<'a> {}
+impl<'a> GetStreamUrl for Media<'a> {}

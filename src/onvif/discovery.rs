@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
 use uuid::Uuid;
-use xml::reader::{Result, EventReader, XmlEvent};
+use xml::reader::{EventReader, Result, XmlEvent};
 
 use super::soap::headers::Probe;
 use super::soap::Client;
@@ -90,7 +90,7 @@ fn multicast_probe_messages(socket: &UdpSocket) {
         .iter()
         .map(|device_type| {
             let client = Client {
-                header: Probe::new(Uuid::new_v4())
+                header: Probe::new(Uuid::new_v4()),
             };
 
             client.build(|writer| {

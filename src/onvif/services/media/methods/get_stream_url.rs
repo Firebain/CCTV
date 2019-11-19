@@ -32,10 +32,8 @@ fn create_message(wsse_client: &Client<UsernameToken>, profile_token: &String) -
             .content("RTP-Unicast")
             .end()
             .write()?;
-        
-        writer
-            .new_event("ns1:Transport")
-            .write()?;
+
+        writer.new_event("ns1:Transport").write()?;
 
         writer
             .new_event("ns1:Protocol")

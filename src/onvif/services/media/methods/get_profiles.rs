@@ -6,7 +6,7 @@ use crate::onvif::soap::headers::UsernameToken;
 use crate::onvif::soap::Client;
 
 pub struct Profile {
-    token: String
+    token: String,
 }
 
 impl Profile {
@@ -56,12 +56,14 @@ fn parse_response(response: String) -> ParserResult<Vec<Profile>> {
         let event = parser.next()?;
 
         match event {
-            XmlEvent::StartElement { name, attributes, .. } => {
+            XmlEvent::StartElement {
+                name, attributes, ..
+            } => {
                 if let "Profiles" = name.local_name.as_str() {
                     for attribute in attributes {
                         if let "token" = attribute.name.local_name.as_str() {
                             profiles.push(Profile {
-                                token: attribute.value
+                                token: attribute.value,
                             });
                         }
                     }
