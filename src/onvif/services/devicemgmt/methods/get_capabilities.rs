@@ -6,7 +6,13 @@ use crate::onvif::soap::headers::UsernameToken;
 use crate::onvif::soap::Client;
 
 pub struct Capabilities {
-    pub media: String,
+    media: String,
+}
+
+impl Capabilities {
+    pub fn media(&self) -> &String {
+        &self.media
+    }
 }
 
 struct CapabilitiesBuilder {
@@ -35,19 +41,15 @@ impl CapabilitiesBuilder {
 
 pub trait GetCapabilities: Service {
     fn get_capabilities(&self) -> RequestResult<Capabilities> {
-        let message = create_message(self.username(), self.password());
+        let message = create_message(self.wsse_client());
 
         let res = send_request(self.xaddr(), message)?;
         Ok(parse_response(res).expect("Unexpected error while parsing response"))
     }
 }
 
-fn create_message(username: &String, password: &String) -> String {
-    let client = Client {
-        header: UsernameToken::new(username, password),
-    };
-
-    client.build(|writer| {
+fn create_message(wsse_client: &Client<UsernameToken>) -> String {
+    wsse_client.build(|writer| {
         writer
             .new_event("ns0:GetCapabilities")
             .ns("ns0", "http://www.onvif.org/ver10/device/wsdl")

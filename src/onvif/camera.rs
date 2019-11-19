@@ -2,23 +2,27 @@ use reqwest::Result;
 
 use super::services::Devicemgmt;
 use super::services::prelude::*;
+use super::soap::headers::UsernameToken;
+use super::soap::Client;
 
 pub struct Camera { 
-    xaddr: String,
-    username: String,
-    password: String
+    xaddr: String
 }
 
 impl Camera {
     pub fn new(xaddr: String, username: String, password: String) -> Result<Self> {
-        let devicemgmt = Devicemgmt::new(&xaddr, &username, &password);
+        let wsse_client = Client {
+            header: UsernameToken::new(username, password),
+        };
+        
+        let devicemgmt = Devicemgmt::new(&xaddr, &wsse_client);
 
         let capabilities = devicemgmt.get_capabilities()?;
 
+        println!("{}", capabilities.media());
+
         Ok(Self {
-            xaddr,
-            username,
-            password
+            xaddr
         })
     }
 }
