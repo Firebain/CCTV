@@ -30,12 +30,13 @@ impl Camera {
         })
     }
 
+    #[allow(dead_code)]
     pub fn devicemgmt(&self) -> Devicemgmt {
         Devicemgmt::new(&self.xaddr, &self.wsse_client)
     }
 
     pub fn media(&self) -> Media {
-        Media::new(&self.xaddr, &self.wsse_client)
+        Media::new(&self.capabilities.media(), &self.wsse_client)
     }
 }
 

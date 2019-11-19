@@ -60,7 +60,7 @@ fn create_message(wsse_client: &Client<UsernameToken>) -> String {
     })
 }
 
-fn send_request(xaddr: &String, message: String) -> RequestResult<String> {
+fn send_request(xaddr: &str, message: String) -> RequestResult<String> {
     let response = reqwest::Client::new()
         .post(xaddr)
         .body(message)
