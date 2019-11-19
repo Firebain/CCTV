@@ -1,12 +1,17 @@
 use reqwest::Result;
 
 use super::services::Devicemgmt;
+use super::services::devicemgmt::Capabilities;
 use super::services::Media;
 use super::services::prelude::*;
 use super::soap::headers::UsernameToken;
 use super::soap::Client;
 
-pub struct Camera;
+pub struct Camera {
+    xaddr: String,
+    wsse_client: Client<UsernameToken>,
+    capabilities: Capabilities
+}
 
 impl Camera {
     pub fn new(xaddr: String, username: String, password: String) -> Result<Self> {
@@ -18,15 +23,19 @@ impl Camera {
 
         let capabilities = devicemgmt.get_capabilities()?;
 
-        let media = Media::new(capabilities.media(), &wsse_client);
+        Ok(Self {
+            xaddr,
+            wsse_client,
+            capabilities
+        })
+    }
 
-        let profiles = media.get_profiles()?;
+    pub fn devicemgmt(&self) -> Devicemgmt {
+        Devicemgmt::new(&self.xaddr, &self.wsse_client)
+    }
 
-        let uri = media.get_stream_url(profiles.first().unwrap().token())?;
-
-        println!("{}", uri);
-
-        Ok(Self)
+    pub fn media(&self) -> Media {
+        Media::new(&self.xaddr, &self.wsse_client)
     }
 }
 

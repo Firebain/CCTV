@@ -1,6 +1,6 @@
 mod service;
 
-mod devicemgmt;
+pub mod devicemgmt;
 mod media;
 
 pub mod prelude;

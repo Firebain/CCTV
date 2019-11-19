@@ -5,6 +5,7 @@ use crate::onvif::services::service::Service;
 use crate::onvif::soap::headers::UsernameToken;
 use crate::onvif::soap::Client;
 
+pub use methods::Capabilities;
 use methods::GetCapabilities;
 
 pub struct Devicemgmt<'a> {
