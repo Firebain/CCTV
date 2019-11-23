@@ -5,6 +5,7 @@
 
 // use std::io;
 
+use std::fs::File;
 use std::io::prelude::*;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::thread;
@@ -111,7 +112,15 @@ fn make_quant_header(headers: &mut Vec<u8>, qt: [u8; 64], table_no: u8) {
     headers.extend(qt.iter());
 }
 
-fn make_huffman_header(headers: &mut Vec<u8>, codelens: &[u8], ncodes: usize, symbols: &[u8], nsymbols: usize, table_no: u8, table_class: u8) {
+fn make_huffman_header(
+    headers: &mut Vec<u8>,
+    codelens: &[u8],
+    ncodes: usize,
+    symbols: &[u8],
+    nsymbols: usize,
+    table_no: u8,
+    table_class: u8,
+) {
     headers.push(0xff);
     headers.push(0xc4);
     headers.push(0);
@@ -151,10 +160,42 @@ fn make_headers(jpeg_type: u8, height: u16, width: u16, lqt: [u8; 64], cqt: [u8;
     headers.push(2);
     headers.push(0x11);
     headers.push(1);
-    make_huffman_header(&mut headers, &LUM_DC_CODELENS, LUM_DC_CODELENS.len(), &LUM_DC_SYMBOLS, LUM_DC_SYMBOLS.len(), 0, 0);
-    make_huffman_header(&mut headers, &LUM_AC_CODELENS, LUM_AC_CODELENS.len(), &LUM_AC_SYMBOLS, LUM_AC_SYMBOLS.len(), 0, 1);
-    make_huffman_header(&mut headers, &CHM_DC_CODELENS, CHM_DC_CODELENS.len(), &CHM_DC_SYMBOLS, CHM_DC_SYMBOLS.len(), 1, 0);
-    make_huffman_header(&mut headers, &CHM_AC_CODELENS, CHM_AC_CODELENS.len(), &CHM_AC_SYMBOLS, CHM_AC_SYMBOLS.len(), 1, 1);
+    make_huffman_header(
+        &mut headers,
+        &LUM_DC_CODELENS,
+        LUM_DC_CODELENS.len(),
+        &LUM_DC_SYMBOLS,
+        LUM_DC_SYMBOLS.len(),
+        0,
+        0,
+    );
+    make_huffman_header(
+        &mut headers,
+        &LUM_AC_CODELENS,
+        LUM_AC_CODELENS.len(),
+        &LUM_AC_SYMBOLS,
+        LUM_AC_SYMBOLS.len(),
+        0,
+        1,
+    );
+    make_huffman_header(
+        &mut headers,
+        &CHM_DC_CODELENS,
+        CHM_DC_CODELENS.len(),
+        &CHM_DC_SYMBOLS,
+        CHM_DC_SYMBOLS.len(),
+        1,
+        0,
+    );
+    make_huffman_header(
+        &mut headers,
+        &CHM_AC_CODELENS,
+        CHM_AC_CODELENS.len(),
+        &CHM_AC_SYMBOLS,
+        CHM_AC_SYMBOLS.len(),
+        1,
+        1,
+    );
     headers.push(0xff);
     headers.push(0xda);
     headers.push(0);
@@ -173,106 +214,136 @@ fn make_headers(jpeg_type: u8, height: u16, width: u16, lqt: [u8; 64], cqt: [u8;
     headers
 }
 
-fn get_n_bit(byte: u8, n: usize) -> bool {
-    if n > 8 { panic!("n more than 8") }
+// fn get_n_bit(byte: u8, n: usize) -> bool {
+//     if n > 8 {
+//         panic!("n more than 8")
+//     }
 
-    let mask = 1 << n;
-    let masked_byte = byte & mask;
-    let bit = masked_byte >> n;
+//     let mask = 1 << n;
+//     let masked_byte = byte & mask;
+//     let bit = masked_byte >> n;
 
-    bit == 1
+//     bit == 1
+// }
+
+fn parse_rtp(buf: &[u8]) -> (bool, &[u8]) {
+    // println!("version: {}", buf[0] >> 6);
+    // println!("p: {}", get_n_bit(buf[0], 5));
+    // println!("x: {}", get_n_bit(buf[0], 4));
+    // println!("cc: {}", buf[0] & 0b0000_1111);
+    // println!("m: {}", buf[1] >> 7);
+    // println!("pt: {}", buf[1] & 0b0111_1111);
+    // println!("packet_number: {:?}", u16::from_be_bytes([buf[2], buf[3]]));
+    // println!(
+    //     "timestamp: {}",
+    //     u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]])
+    // );
+    // println!(
+    //     "ssrc: {}",
+    //     u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]])
+    // );
+
+    // TODO: i skiped csrc fields. Return to this if needed
+
+    (buf[1] >> 7 == 1, &buf[12..])
+}
+
+fn parse_rtp_jpeg(buf: &[u8]) -> (Vec<u8>, &[u8]) {
+    // println!();
+
+    // println!("main header: {:?}", &buf[..8]);
+
+    // let type_specific = buf[0];
+    // let fragment_offset = [buf[3], buf[2], buf[1]];
+    let jpeg_type = buf[4];
+    let q = buf[5];
+    let width = buf[6];
+    let height = buf[7];
+
+    let width_converted = (width as u16) * 8;
+    let height_converted = (height as u16) * 8;
+
+    // println!("type_specific: {:?}", type_specific);
+    // println!("fragment_offset: {:?}", fragment_offset);
+    // println!("jpeg_type: {:?}", jpeg_type);
+    // println!("q: {:?}", q);
+    // println!("width_original: {:?}", width);
+    // println!("width_converted: {:?}", width_converted);
+    // println!("height: {:?}", height);
+    // println!("height_converted: {:?}", height_converted);
+
+    // TODO: I skipped Restart Marker header impl. For now it's look like useless header.
+
+    let has_quantization_header = q > 127;
+
+    // println!();
+
+    let (lqt, cqt) = if has_quantization_header {
+        // println!("quantization_header: {:?}", &buf[8..12]);
+
+        // let mbz = buf[8];
+        // let precision = buf[9];
+        // let length = [buf[10], buf[11]];
+
+        // println!("mbz: {:?}", mbz);
+        // println!("precision: {:?}", precision);
+        // println!("length: {:?}", length);
+
+        let mut lqt: [u8; 64] = [0; 64];
+        lqt.copy_from_slice(&buf[12..12 + 64]);
+
+        let mut cqt: [u8; 64] = [0; 64];
+        cqt.copy_from_slice(&buf[13 + 64..13 + (64 * 2)]);
+
+        (lqt, cqt)
+    } else {
+        make_tables(q)
+    };
+
+    // println!();
+
+    let offset = if has_quantization_header {
+        13 + (64 * 2) + 1
+    } else {
+        8
+    };
+
+    (make_headers(jpeg_type, height_converted, width_converted, lqt, cqt), &buf[offset..])
 }
 
 fn video_handler(socket: UdpSocket) {
-    let mut buf = [0; 65_535];
+    let mut jpeg_buf: Vec<u8> = Vec::new();
 
-    socket.recv(&mut buf).unwrap();
+    let mut i = 0;
 
-    println!("first byte: {:08b}", buf[0]);
-    println!("version: {}", buf[0] >> 6);
-    println!("p: {}", get_n_bit(buf[0], 5));
+    loop {
+        let mut buf = [0; 65_535];
 
-    // loop {
-    //     let mut buf = [0; 65_535];
+        let amt = socket.recv(&mut buf).unwrap();
 
-    //     let amt = socket.recv(&mut buf).unwrap();
+        let buf = &buf[..amt];
 
-    //     println!("amt: {}", amt);
+        let (marker, payload) = parse_rtp(&buf);
 
-    //     println!();
+        let (headers, jpeg_data) = parse_rtp_jpeg(payload);
 
-    //     println!("main header: {:?}", &buf[..8]);
+        jpeg_buf.extend(jpeg_data.iter());
 
-    //     let type_specific = buf[0];
-    //     let fragment_offset = [buf[3], buf[2], buf[1]];
-    //     let jpeg_type = buf[4];
-    //     let q = buf[5];
-    //     let width = buf[6];
-    //     let height = buf[7];
+        if marker {
+            let mut jpeg = Vec::new();
 
-    //     let width_converted = (width as u16) * 8;
-    //     let height_converted = (height as u16) * 8;
+            let mut file = File::create(format!("images/foo{}.jpeg", i)).unwrap();
 
-    //     println!("type_specific: {:?}", type_specific);
-    //     println!("fragment_offset: {:?}", fragment_offset);
-    //     println!("jpeg_type: {:?}", jpeg_type);
-    //     println!("q: {:?}", q);
-    //     println!("width_original: {:?}", width);
-    //     println!("width_converted: {:?}", width_converted);
-    //     println!("height: {:?}", height);
-    //     println!("height_converted: {:?}", height_converted);
+            jpeg.extend(headers);
+            jpeg.extend(jpeg_buf);
 
-    //     println!();
+            file.write_all(&jpeg).unwrap();
 
-    //     let has_marker_header = jpeg_type > 63 && jpeg_type < 128;
+            i += 1;
 
-    //     // TODO: This is Restart Marker header impl. For now it's look like useless header.
-    //     // if has_marker_header {
-    //     //     let restart_interval = [buf[8], buf[9]];
-    //     //     let restart_count = [buf[10], buf[11]];
-    //     // }
-
-    //     let offset = if has_marker_header { 12 } else { 8 };
-
-    //     let has_quantization_header = q > 127;
-
-    //     let (lqt, cqt) = if has_quantization_header {
-    //         println!("quantization_header: {:?}", &buf[offset..offset + 4]);
-
-    //         let mbz = buf[offset];
-    //         let precision = buf[offset + 1];
-    //         let length = [buf[offset + 2], buf[offset + 3]];
-
-    //         println!("mbz: {:?}", mbz);
-    //         println!("precision: {:?}", precision);
-    //         println!("length: {:?}", length);
-
-    //         let mut lqt: [u8; 64] = [0; 64];
-    //         lqt.copy_from_slice(&buf[offset + 4..offset + 4 + 64]);
-
-    //         let mut cqt: [u8; 64] = [0; 64];
-    //         cqt.copy_from_slice(&buf[offset + 5 + 64..offset + 5 + (64 * 2)]);
-
-    //         (lqt, cqt)
-    //     } else {
-    //         make_tables(q)
-    //     };
-
-    //     let offset = if has_quantization_header {
-    //         offset + 5 + (64 * 2) + 1
-    //     } else {
-    //         offset
-    //     };
-
-    //     let jpeg_data = &buf[offset..amt];
-
-    //     println!(
-    //         "{:?}",
-    //         make_headers(jpeg_type, height_converted, width_converted, lqt, cqt)
-    //     );
-
-    //     println!("-----------------------------------------");
-    // }
+            jpeg_buf = Vec::new();
+        }
+    }
 }
 
 fn main() {
@@ -382,7 +453,7 @@ fn main() {
 
     println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
 
-    // thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(2));
 
     let teardown = format!(
         "TEARDOWN rtsp://192.168.1.88:554/av0_0 RTSP/1.0\r\n\
