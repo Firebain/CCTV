@@ -1,3 +1,1 @@
-mod rtp;
-
-pub use rtp::RTPPacket;
+pub mod rtp;

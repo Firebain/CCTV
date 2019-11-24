@@ -15,8 +15,6 @@ pub struct RTPPacket {
     marker: bool,
     payload_type: RTPPayloadType,
     sequence_number: u16,
-    timestamp: u32,
-    ssrc: u32,
     payload: Vec<u8>,
 }
 
@@ -24,17 +22,13 @@ impl RTPPacket {
     pub fn marked(&self) -> bool {
         self.marker
     }
+
+    pub fn payload_type(&self) -> &RTPPayloadType {
+        &self.payload_type
+    }
     
     pub fn sequence_number(&self) -> u16 {
         self.sequence_number
-    }
-
-    pub fn timestamp(&self) -> u32 {
-        self.timestamp
-    }
-
-    pub fn ssrc(&self) -> u32 {
-        self.ssrc
     }
 
     pub fn payload(&self) -> &Vec<u8> {
@@ -70,8 +64,10 @@ impl TryFrom<&[u8]> for RTPPacket {
         let marker = buf[1] >> 7 == 1;
         let payload_type = RTPPayloadType::try_from(buf[1] & 0b0111_1111)?;
         let sequence_number = u16::from_be_bytes([buf[2], buf[3]]);
-        let timestamp = u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]);
-        let ssrc = u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]]);
+
+        // TODO: Unused fields
+        let _timestamp = u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]);
+        let _ssrc = u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]]);
 
         let payload = Vec::from(&buf[12..]);
 
@@ -79,8 +75,6 @@ impl TryFrom<&[u8]> for RTPPacket {
             marker,
             payload_type,
             sequence_number,
-            timestamp,
-            ssrc,
             payload,
         })
     }
