@@ -1,4 +1,8 @@
 // mod onvif;
+mod rtsp;
+
+use std::convert::TryFrom;
+use rtsp::RTPPacket;
 
 // use onvif::prelude::*;
 // use onvif::Camera;
@@ -312,9 +316,9 @@ fn parse_rtp_jpeg(buf: &[u8]) -> (Vec<u8>, &[u8]) {
 }
 
 fn video_handler(socket: UdpSocket) {
-    let mut jpeg_buf: Vec<u8> = Vec::new();
+    // let mut jpeg_buf: Vec<u8> = Vec::new();
 
-    let mut i = 0;
+    // let mut i = 0;
 
     loop {
         let mut buf = [0; 65_535];
@@ -323,26 +327,30 @@ fn video_handler(socket: UdpSocket) {
 
         let buf = &buf[..amt];
 
-        let (marker, payload) = parse_rtp(&buf);
+        let rtp_packet = RTPPacket::try_from(buf).unwrap();
 
-        let (headers, jpeg_data) = parse_rtp_jpeg(payload);
+        println!("{}", rtp_packet.marked())
 
-        jpeg_buf.extend(jpeg_data.iter());
+        // let (marker, payload) = parse_rtp(&buf);
 
-        if marker {
-            let mut jpeg = Vec::new();
+        // let (headers, jpeg_data) = parse_rtp_jpeg(payload);
 
-            let mut file = File::create(format!("images/foo{}.jpeg", i)).unwrap();
+        // jpeg_buf.extend(jpeg_data.iter());
 
-            jpeg.extend(headers);
-            jpeg.extend(jpeg_buf);
+        // if marker {
+        //     let mut jpeg = Vec::new();
 
-            file.write_all(&jpeg).unwrap();
+        //     let mut file = File::create(format!("images/foo{}.jpeg", i)).unwrap();
 
-            i += 1;
+        //     jpeg.extend(headers);
+        //     jpeg.extend(jpeg_buf);
 
-            jpeg_buf = Vec::new();
-        }
+        //     file.write_all(&jpeg).unwrap();
+
+        //     i += 1;
+
+        //     jpeg_buf = Vec::new();
+        // }
     }
 }
 
