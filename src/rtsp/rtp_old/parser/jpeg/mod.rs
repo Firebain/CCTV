@@ -54,7 +54,7 @@ fn make_tables(q: u8) -> ([u8; 64], [u8; 64]) {
     (lqt, cqt)
 }
 
-pub fn parse(buf: &[u8]) -> (Vec<u8>, Vec<u8>) {
+pub fn parse(buf: &[u8], header_seated: bool) -> (Vec<u8>, Vec<u8>) {
     // println!();
 
     // println!("main header: {:?}", &buf[..8]);
@@ -108,8 +108,8 @@ pub fn parse(buf: &[u8]) -> (Vec<u8>, Vec<u8>) {
 
     // println!();
 
-    let offset = if has_quantization_header {
-        13 + (64 * 2) + 1
+    let offset = if has_quantization_header && !header_seated {
+        140
     } else {
         8
     };

@@ -1,7 +1,7 @@
 // mod onvif;
 mod rtsp;
 
-use rtsp::rtp::sequence::{
+use rtsp::rtp_old::sequence::{
     error::RTPSequenceError, sequence::RTPSequence, sequence::RTPSequenceStatus,
 };
 
@@ -17,8 +17,6 @@ use std::thread;
 use std::time::Duration;
 
 fn video_handler(socket: UdpSocket) {
-    let mut i = 0;
-
     let mut rtp_sequence = RTPSequence::new();
 
     loop {
@@ -33,11 +31,9 @@ fn video_handler(socket: UdpSocket) {
                 RTPSequenceStatus::LastPacket => {
                     let data = rtp_sequence.make();
 
-                    let mut file = File::create(format!("images/foo{}.jpeg", i)).unwrap();
+                    let mut file = File::create("frame.jpeg").unwrap();
 
                     file.write_all(&data).unwrap();
-
-                    i += 1;
 
                     rtp_sequence.clean();
                 },
@@ -54,7 +50,7 @@ fn video_handler(socket: UdpSocket) {
 fn main() {
     let mut stream = TcpStream::connect("192.168.1.88:554").unwrap();
 
-    let options = b"OPTIONS rtsp://192.168.1.88:554/av0_0 RTSP/1.0\r\n\
+    let options = b"OPTIONS rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
                     CSeq: 1\r\n\
                     User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
                     \r\n";
@@ -69,7 +65,7 @@ fn main() {
 
     println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
 
-    let describe = b"DESCRIBE rtsp://192.168.1.88:554/av0_0 RTSP/1.0\r\n\
+    let describe = b"DESCRIBE rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
                      CSeq: 2\r\n\
                      User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
                      Accept: application/sdp\r\n\
@@ -105,7 +101,7 @@ fn main() {
     });
 
     let setup = format!(
-        "SETUP rtsp://192.168.1.88:554/av0_0 RTSP/1.0\r\n\
+        "SETUP rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
          CSeq: 3\r\n\
          User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
          Transport: RTP/AVP;unicast;client_port={}-{}\r\n\
@@ -137,7 +133,7 @@ fn main() {
         .unwrap();
 
     let play = format!(
-        "PLAY rtsp://192.168.1.88:554/av0_0 RTSP/1.0\r\n\
+        "PLAY rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
          CSeq: 4\r\n\
          User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
          Session: {}\r\n\
@@ -158,10 +154,10 @@ fn main() {
 
     println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
 
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(10));
 
     let teardown = format!(
-        "TEARDOWN rtsp://192.168.1.88:554/av0_0 RTSP/1.0\r\n\
+        "TEARDOWN rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
          CSeq: 5\r\n\
          User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
          Session: {}\r\n\

@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 
 use super::error::RTPSequenceError;
-use crate::rtsp::rtp::packet::{packet::RTPPacket, payload_type::RTPPayloadType};
-use crate::rtsp::rtp::parser::RTPPayloadParser;
+use crate::rtsp::rtp_old::packet::{packet::RTPPacket, payload_type::RTPPayloadType};
+use crate::rtsp::rtp_old::parser::RTPPayloadParser;
 
 pub enum RTPSequenceStatus {
     Ok,
@@ -61,7 +61,7 @@ impl RTPSequence {
         let (header, body) = self.parser
             .as_ref()
             .expect("Unexpected error: parser is not setted up")
-            .parse(rtp_packet.payload());
+            .parse(rtp_packet.payload(), self.header.is_some());
 
         if let None = self.header {
             self.header = Some(header)
