@@ -1,8 +1,7 @@
 use std::convert::TryFrom;
 
 use super::error::RTPSequenceError;
-use crate::rtsp::rtp_old::packet::{packet::RTPPacket, payload_type::RTPPayloadType};
-use crate::rtsp::rtp::jpeg_payload;
+use crate::rtsp::rtp::{package::RTPPacket, jpeg_payload};
 
 pub enum RTPSequenceStatus {
     Ok,
@@ -11,7 +10,6 @@ pub enum RTPSequenceStatus {
 
 pub struct RTPSequence {
     buffer: Vec<u8>,
-    sequence_type: Option<RTPPayloadType>,
     header: Option<Vec<u8>>,
     last_package_number: Option<u16>,
 }
@@ -20,7 +18,6 @@ impl RTPSequence {
     pub fn new() -> Self {
         Self {
             buffer: Vec::new(),
-            sequence_type: None,
             header: None,
             last_package_number: None,
         }
@@ -31,17 +28,6 @@ impl RTPSequence {
             Ok(packet) => packet,
             Err(err) => return Err(RTPSequenceError::RTPPacketError(err)),
         };
-
-        match self.sequence_type {
-            Some(sequence_type) => {
-                if !sequence_type.is_equals(rtp_packet.payload_type()) {
-                    return Err(RTPSequenceError::PayloadTypeIsChanged);
-                }
-            }
-            None => {
-                self.sequence_type = Some(*rtp_packet.payload_type());
-            }
-        }
 
         match self.last_package_number {
             Some(number) => {
