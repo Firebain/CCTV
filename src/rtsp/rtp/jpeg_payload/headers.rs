@@ -63,7 +63,13 @@ fn make_huffman_header(
     headers.extend(symbols.iter());
 }
 
-pub fn make_headers(jpeg_type: u8, height: u16, width: u16, lqt: [u8; 64], cqt: [u8; 64]) -> Vec<u8> {
+pub fn make_headers(
+    jpeg_type: u8,
+    height: u16,
+    width: u16,
+    lqt: [u8; 64],
+    cqt: [u8; 64],
+) -> Vec<u8> {
     let mut headers = Vec::new();
 
     headers.push(0xff);
@@ -93,34 +99,10 @@ pub fn make_headers(jpeg_type: u8, height: u16, width: u16, lqt: [u8; 64], cqt: 
     headers.push(2);
     headers.push(0x11);
     headers.push(1);
-    make_huffman_header(
-        &mut headers,
-        &LUM_DC_CODELENS,
-        &LUM_DC_SYMBOLS,
-        0,
-        0,
-    );
-    make_huffman_header(
-        &mut headers,
-        &LUM_AC_CODELENS,
-        &LUM_AC_SYMBOLS,
-        0,
-        1,
-    );
-    make_huffman_header(
-        &mut headers,
-        &CHM_DC_CODELENS,
-        &CHM_DC_SYMBOLS,
-        1,
-        0,
-    );
-    make_huffman_header(
-        &mut headers,
-        &CHM_AC_CODELENS,
-        &CHM_AC_SYMBOLS,
-        1,
-        1,
-    );
+    make_huffman_header(&mut headers, &LUM_DC_CODELENS, &LUM_DC_SYMBOLS, 0, 0);
+    make_huffman_header(&mut headers, &LUM_AC_CODELENS, &LUM_AC_SYMBOLS, 0, 1);
+    make_huffman_header(&mut headers, &CHM_DC_CODELENS, &CHM_DC_SYMBOLS, 1, 0);
+    make_huffman_header(&mut headers, &CHM_AC_CODELENS, &CHM_AC_SYMBOLS, 1, 1);
     headers.push(0xff);
     headers.push(0xda);
     headers.push(0);

@@ -3,8 +3,8 @@ use std::convert::TryFrom;
 use std::error;
 use std::fmt;
 
-use super::package::{RTPPacket, RTPPacketError};
 use super::jpeg_payload;
+use super::package::{RTPPacket, RTPPacketError};
 
 pub enum RTPSequenceStatus {
     Ok,
@@ -39,12 +39,11 @@ impl RTPSequence {
 
         let (header, body) = jpeg_payload::parse(rtp_packet.payload(), self.header.is_some());
 
-        if let None = self.header {
-            if let None = header {
-                return Err(RTPSequenceError::HeaderMissing);    
+        if self.header.is_none() {
+            match header {
+                Some(_) => self.header = header,
+                None => return Err(RTPSequenceError::HeaderMissing)
             }
-
-            self.header = header
         }
 
         self.buffer.extend(body);
@@ -58,8 +57,8 @@ impl RTPSequence {
                     data.extend(&self.buffer);
 
                     Ok(RTPSequenceStatus::LastPacket(data))
-                },
-                None => Err(RTPSequenceError::HeaderMissing)
+                }
+                None => Err(RTPSequenceError::HeaderMissing),
             }
         } else {
             Ok(RTPSequenceStatus::Ok)
@@ -90,7 +89,7 @@ impl fmt::Display for RTPSequenceError {
         match self {
             Self::PackageLost => write!(f, "Package lost while buiilding sequence"),
             Self::HeaderMissing => write!(f, "Header missing in first package"),
-            Self::RTPPacketError(error) => write!(f, "RTP packet parsing error: {}", error)
+            Self::RTPPacketError(error) => write!(f, "RTP packet parsing error: {}", error),
         }
     }
 }

@@ -12,7 +12,7 @@ impl RTPPacket {
     pub fn marked(&self) -> bool {
         self.marker
     }
-    
+
     pub fn sequence_number(&self) -> u16 {
         self.sequence_number
     }
@@ -53,14 +53,14 @@ impl TryFrom<&[u8]> for RTPPacket {
 #[derive(Debug)]
 pub enum RTPPacketError {
     UnsupportedVersion,
-    UnsupportedPayloadType
+    UnsupportedPayloadType,
 }
 
 impl fmt::Display for RTPPacketError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::UnsupportedVersion => write!(f, "Only 2 version is supported"),
-            Self::UnsupportedPayloadType => write!(f, "Only jpeg payload is supported")
+            Self::UnsupportedPayloadType => write!(f, "Only jpeg payload is supported"),
         }
     }
 }

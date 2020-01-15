@@ -1,9 +1,7 @@
 // mod onvif;
 mod rtsp;
 
-use rtsp::rtp::sequence::{
-    RTPSequenceError, RTPSequence, RTPSequenceStatus,
-};
+use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
 // use onvif::prelude::*;
 // use onvif::Camera;
@@ -27,16 +25,18 @@ fn video_handler(socket: UdpSocket) {
         let buf = &buf[..amt];
 
         match rtp_sequence.push(buf) {
-            Ok(status) => if let RTPSequenceStatus::LastPacket(data) = status {
-                let mut file = File::create("frame.jpeg").unwrap();
+            Ok(status) => {
+                if let RTPSequenceStatus::LastPacket(data) = status {
+                    let mut file = File::create("frame.jpeg").unwrap();
 
-                file.write_all(&data).unwrap();
+                    file.write_all(&data).unwrap();
 
-                rtp_sequence.clean();
+                    rtp_sequence.clean();
+                }
             }
             Err(err) => match err {
                 RTPSequenceError::PackageLost => rtp_sequence.clean(),
-                _ => panic!("{}", err)
+                _ => panic!("{}", err),
             },
         }
     }

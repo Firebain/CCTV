@@ -15,23 +15,29 @@ pub fn parse(buf: &[u8], header_seated: bool) -> (Option<Vec<u8>>, Vec<u8>) {
     let height_converted = (height as u16) * 8;
 
     let has_quantization_header = q > 127;
-    
+
     if fragment_offset == 0 {
         let (lqt, cqt) = if has_quantization_header && !header_seated {
             let mut lqt: [u8; 64] = [0; 64];
             lqt.copy_from_slice(&buf[12..12 + 64]);
-    
+
             let mut cqt: [u8; 64] = [0; 64];
             cqt.copy_from_slice(&buf[13 + 64..13 + (64 * 2)]);
-    
+
             (lqt, cqt)
         } else {
             make_tables(q)
         };
 
         (
-            Some(make_headers(jpeg_type, height_converted, width_converted, lqt, cqt)), 
-            Vec::from(&buf[140..])
+            Some(make_headers(
+                jpeg_type,
+                height_converted,
+                width_converted,
+                lqt,
+                cqt,
+            )),
+            Vec::from(&buf[140..]),
         )
     } else {
         (None, Vec::from(&buf[8..]))
