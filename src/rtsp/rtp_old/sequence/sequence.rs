@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use super::error::RTPSequenceError;
 use crate::rtsp::rtp_old::packet::{packet::RTPPacket, payload_type::RTPPayloadType};
-use crate::rtsp::rtp_old::parser::RTPPayloadParser;
+use crate::rtsp::rtp::jpeg_payload;
 
 pub enum RTPSequenceStatus {
     Ok,
@@ -12,7 +12,6 @@ pub enum RTPSequenceStatus {
 pub struct RTPSequence {
     buffer: Vec<u8>,
     sequence_type: Option<RTPPayloadType>,
-    parser: Option<RTPPayloadParser>,
     header: Option<Vec<u8>>,
     last_package_number: Option<u16>,
 }
@@ -22,7 +21,6 @@ impl RTPSequence {
         Self {
             buffer: Vec::new(),
             sequence_type: None,
-            parser: None,
             header: None,
             last_package_number: None,
         }
@@ -42,8 +40,6 @@ impl RTPSequence {
             }
             None => {
                 self.sequence_type = Some(*rtp_packet.payload_type());
-
-                self.parser = Some(RTPPayloadParser::from(*rtp_packet.payload_type()));
             }
         }
 
@@ -58,13 +54,10 @@ impl RTPSequence {
             None => self.last_package_number = Some(rtp_packet.sequence_number()),
         }
 
-        let (header, body) = self.parser
-            .as_ref()
-            .expect("Unexpected error: parser is not setted up")
-            .parse(rtp_packet.payload(), self.header.is_some());
+        let (header, body) = jpeg_payload::parse(rtp_packet.payload(), self.header.is_some());
 
         if let None = self.header {
-            self.header = Some(header)
+            self.header = Some(header.unwrap())
         }
 
         self.buffer.extend(body);

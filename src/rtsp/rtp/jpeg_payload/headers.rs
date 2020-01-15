@@ -50,16 +50,14 @@ fn make_quant_header(headers: &mut Vec<u8>, qt: [u8; 64], table_no: u8) {
 fn make_huffman_header(
     headers: &mut Vec<u8>,
     codelens: &[u8],
-    ncodes: usize,
     symbols: &[u8],
-    nsymbols: usize,
     table_no: u8,
     table_class: u8,
 ) {
     headers.push(0xff);
     headers.push(0xc4);
     headers.push(0);
-    headers.push((3 + ncodes + nsymbols) as u8);
+    headers.push((3 + codelens.len() + symbols.len()) as u8);
     headers.push((table_class << 4) | table_no);
     headers.extend(codelens.iter());
     headers.extend(symbols.iter());
@@ -98,36 +96,28 @@ pub fn make_headers(jpeg_type: u8, height: u16, width: u16, lqt: [u8; 64], cqt: 
     make_huffman_header(
         &mut headers,
         &LUM_DC_CODELENS,
-        LUM_DC_CODELENS.len(),
         &LUM_DC_SYMBOLS,
-        LUM_DC_SYMBOLS.len(),
         0,
         0,
     );
     make_huffman_header(
         &mut headers,
         &LUM_AC_CODELENS,
-        LUM_AC_CODELENS.len(),
         &LUM_AC_SYMBOLS,
-        LUM_AC_SYMBOLS.len(),
         0,
         1,
     );
     make_huffman_header(
         &mut headers,
         &CHM_DC_CODELENS,
-        CHM_DC_CODELENS.len(),
         &CHM_DC_SYMBOLS,
-        CHM_DC_SYMBOLS.len(),
         1,
         0,
     );
     make_huffman_header(
         &mut headers,
         &CHM_AC_CODELENS,
-        CHM_AC_CODELENS.len(),
         &CHM_AC_SYMBOLS,
-        CHM_AC_SYMBOLS.len(),
         1,
         1,
     );
