@@ -79,8 +79,8 @@ pub enum RTPSequenceError {
 }
 
 impl From<RTPPacketError> for RTPSequenceError {
-    fn from(err: RTPPacketError) -> RTPSequenceError {
-        RTPSequenceError::RTPPacketError(err)
+    fn from(err: RTPPacketError) -> Self {
+        Self::RTPPacketError(err)
     }
 }
 

@@ -1,6 +1,7 @@
 // mod onvif;
 mod rtsp;
 
+use rtsp::client::RTSPClient;
 use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
 // use onvif::prelude::*;
@@ -10,7 +11,7 @@ use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
 use std::fs::File;
 use std::io::prelude::*;
-use std::net::{SocketAddr, TcpStream, UdpSocket};
+use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::Duration;
 
@@ -43,38 +44,9 @@ fn video_handler(socket: UdpSocket) {
 }
 
 fn main() {
-    let mut stream = TcpStream::connect("192.168.1.88:554").unwrap();
+    let mut client = RTSPClient::connect("rtsp://192.168.1.88:554/av0_1".to_string()).unwrap();
 
-    let options = b"OPTIONS rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
-                    CSeq: 1\r\n\
-                    User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
-                    \r\n";
-
-    println!("C->S:\r\n{}", String::from_utf8_lossy(options));
-
-    stream.write(options).unwrap();
-
-    let mut buf = [0; 65_535];
-
-    let amt = stream.read(&mut buf).unwrap();
-
-    println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
-
-    let describe = b"DESCRIBE rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
-                     CSeq: 2\r\n\
-                     User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
-                     Accept: application/sdp\r\n\
-                     \r\n";
-
-    println!("C->S:\r\n{}", String::from_utf8_lossy(describe));
-
-    stream.write(describe).unwrap();
-
-    let mut buf = [0; 65_535];
-
-    let amt = stream.read(&mut buf).unwrap();
-
-    println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
+    client.describe().unwrap();
 
     let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));
     let main_socket = UdpSocket::bind(free_socket_addr).expect("Could not bind to udp socket");
@@ -95,82 +67,13 @@ fn main() {
         println!("{:?}", buf);
     });
 
-    let setup = format!(
-        "SETUP rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
-         CSeq: 3\r\n\
-         User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
-         Transport: RTP/AVP;unicast;client_port={}-{}\r\n\
-         \r\n",
-        main_socket.local_addr().unwrap().port(),
-        second_socket.local_addr().unwrap().port(),
-    );
+    let session = client.setup(main_socket, second_socket).unwrap();
 
-    let setup = setup.as_bytes();
-
-    println!("C->S:\r\n{}", String::from_utf8_lossy(setup));
-
-    stream.write(setup).unwrap();
-
-    let mut buf = [0; 65_535];
-
-    let amt = stream.read(&mut buf).unwrap();
-
-    println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
-
-    let session = String::from_utf8_lossy(&buf[..amt]);
-
-    let session = session
-        .split("\r\n")
-        .find(|s| s.starts_with("Session:"))
-        .unwrap()
-        .split(" ")
-        .nth(1)
-        .unwrap();
-
-    let play = format!(
-        "PLAY rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
-         CSeq: 4\r\n\
-         User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
-         Session: {}\r\n\
-         Range: npt=0.000-\r\n\
-         \r\n",
-        session
-    );
-
-    let play = play.as_bytes();
-
-    println!("C->S:\r\n{}", String::from_utf8_lossy(play));
-
-    stream.write(play).unwrap();
-
-    let mut buf = [0; 65_535];
-
-    let amt = stream.read(&mut buf).unwrap();
-
-    println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
+    client.play(&session).unwrap();
 
     thread::sleep(Duration::from_secs(10));
 
-    let teardown = format!(
-        "TEARDOWN rtsp://192.168.1.88:554/av0_1 RTSP/1.0\r\n\
-         CSeq: 5\r\n\
-         User-Agent: VLC media player (LIVE555 Streaming Media v2008.07.24)\r\n\
-         Session: {}\r\n\
-         \r\n",
-        session
-    );
-
-    let teardown = teardown.as_bytes();
-
-    println!("C->S:\r\n{}", String::from_utf8_lossy(teardown));
-
-    stream.write(teardown).unwrap();
-
-    let mut buf = [0; 65_535];
-
-    let amt = stream.read(&mut buf).unwrap();
-
-    println!("S->C:\r\n{}", String::from_utf8_lossy(&buf[..amt]));
+    client.teardown(&session).unwrap();
 
     video_thread.join().unwrap();
     control_info_thread.join().unwrap();
