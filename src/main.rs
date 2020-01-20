@@ -67,7 +67,7 @@ fn main() {
         println!("{:?}", buf);
     });
 
-    let session = client.setup(main_socket, second_socket).unwrap();
+    let session = client.setup(main_socket.local_addr().unwrap().port(), second_socket.local_addr().unwrap().port()).unwrap();
 
     client.play(&session).unwrap();
 
@@ -77,8 +77,6 @@ fn main() {
 
     video_thread.join().unwrap();
     control_info_thread.join().unwrap();
-
-    // println!("{}", socket.local_addr().unwrap().port());
 
     // let mut buf = vec![];
 
