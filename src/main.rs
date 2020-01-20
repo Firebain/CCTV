@@ -67,7 +67,12 @@ fn main() {
         println!("{:?}", buf);
     });
 
-    let session = client.setup(main_socket.local_addr().unwrap().port(), second_socket.local_addr().unwrap().port()).unwrap();
+    let session = client
+        .setup(
+            main_socket.local_addr().unwrap().port(),
+            second_socket.local_addr().unwrap().port(),
+        )
+        .unwrap();
 
     client.play(&session).unwrap();
 

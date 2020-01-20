@@ -42,7 +42,7 @@ impl RTPSequence {
         if self.header.is_none() {
             match header {
                 Some(_) => self.header = header,
-                None => return Err(RTPSequenceError::HeaderMissing)
+                None => return Err(RTPSequenceError::HeaderMissing),
             }
         }
 
