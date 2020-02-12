@@ -9,13 +9,28 @@ use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
 // use std::io;
 
-use image::{ImageBuffer, GenericImageView, Rgb};
+use std::net::{TcpListener, TcpStream};
+use image::{DynamicImage, ImageBuffer, GenericImageView, Rgb, ImageFormat};
 use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::Duration;
 use std::sync::mpsc::{sync_channel, Receiver};
+use tungstenite::server::accept;
+use tungstenite::WebSocket;
+use std::sync::{Arc, Mutex};
+use tungstenite::Message;
 
-fn jpeg_reader(receiver: Receiver<Vec<u8>>) {
+fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
+    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+
+    for stream in server.incoming() {
+        let mut users = users.lock().unwrap();
+
+        users.push(accept(stream.unwrap()).unwrap());
+    }
+}
+
+fn jpeg_reader(receiver: Receiver<Vec<u8>>, users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
     loop {
         let data = receiver.recv().unwrap();
 
@@ -39,8 +54,16 @@ fn jpeg_reader(receiver: Receiver<Vec<u8>>) {
         }
 
         let new_image: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_vec(dimensions.0 * 2, dimensions.1, new_image).unwrap();
+        let new_image = DynamicImage::ImageRgb8(new_image);
 
-        new_image.save("frame.jpeg").unwrap();
+        let mut users = users.lock().unwrap();
+
+        let mut bytes = Vec::new();
+        new_image.write_to(&mut bytes, ImageFormat::Jpeg).unwrap();
+
+        for user in (*users).iter_mut() {
+            user.write_message(Message::Binary(bytes.clone())).unwrap();
+        }
     }
 }
 
@@ -48,8 +71,14 @@ fn video_handler(socket: UdpSocket) {
     let mut rtp_sequence = RTPSequence::new();
 
     let (sync_sender, receiver) = sync_channel(100);
+    
+    let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
+    let users_1 = Arc::clone(&users);
+    let users_2 = Arc::clone(&users);
 
-    thread::spawn(move || jpeg_reader(receiver));
+    thread::spawn(move || jpeg_reader(receiver, users_1));
+
+    thread::spawn(move || websocket_connections(users_2));
 
     loop {
         let mut buf = [0; 65_535];
@@ -110,7 +139,7 @@ fn main() {
 
     client.play(&session).unwrap();
 
-    thread::sleep(Duration::from_secs(10));
+    thread::sleep(Duration::from_secs(60));
 
     client.teardown(&session).unwrap();
 
