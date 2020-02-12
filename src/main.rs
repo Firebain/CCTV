@@ -9,14 +9,47 @@ use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
 // use std::io;
 
-use std::fs::File;
-use std::io::prelude::*;
+use image::{ImageBuffer, GenericImageView, Rgb};
 use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::Duration;
+use std::sync::mpsc::{sync_channel, Receiver};
+
+fn jpeg_reader(receiver: Receiver<Vec<u8>>) {
+    loop {
+        let data = receiver.recv().unwrap();
+
+        let img = image::load_from_memory(&data).unwrap();
+
+        let dimensions = img.dimensions();
+
+        let container = img.to_bytes();
+        let pixels: Vec<&[u8]> = container.chunks(3).collect();
+        let rows: Vec<&[&[u8]]> = pixels.chunks(dimensions.0 as usize).collect();
+
+        let mut new_image = Vec::new();
+
+        for row in rows {
+            let mut new_row = Vec::new();
+            for rgb in row {
+                new_row.extend_from_slice(rgb);
+            }
+
+            new_image.append(&mut new_row.repeat(2));
+        }
+
+        let new_image: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_vec(dimensions.0 * 2, dimensions.1, new_image).unwrap();
+
+        new_image.save("frame.jpeg").unwrap();
+    }
+}
 
 fn video_handler(socket: UdpSocket) {
     let mut rtp_sequence = RTPSequence::new();
+
+    let (sync_sender, receiver) = sync_channel(100);
+
+    thread::spawn(move || jpeg_reader(receiver));
 
     loop {
         let mut buf = [0; 65_535];
@@ -28,15 +61,16 @@ fn video_handler(socket: UdpSocket) {
         match rtp_sequence.push(buf) {
             Ok(status) => {
                 if let RTPSequenceStatus::LastPacket(data) = status {
-                    let mut file = File::create("frame.jpeg").unwrap();
-
-                    file.write_all(&data).unwrap();
+                    if let Err(_) = sync_sender.try_send(data) {
+                        println!("Buffer is full");
+                    }
 
                     rtp_sequence.clean();
                 }
             }
             Err(err) => match err {
                 RTPSequenceError::PackageLost => rtp_sequence.clean(),
+                RTPSequenceError::HeaderMissing => rtp_sequence.clean(),
                 _ => panic!("{}", err),
             },
         }
