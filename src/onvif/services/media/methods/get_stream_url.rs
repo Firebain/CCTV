@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use reqwest::Result as RequestResult;
 use xml::reader::{EventReader, Result as ParserResult, XmlEvent};
 
@@ -5,11 +6,12 @@ use crate::onvif::services::service::Service;
 use crate::onvif::soap::headers::UsernameToken;
 use crate::onvif::soap::Client;
 
+#[async_trait]
 pub trait GetStreamUrl: Service {
-    fn get_stream_url(&self, profile_token: &String) -> RequestResult<String> {
+    async fn get_stream_url(&self, profile_token: &String) -> RequestResult<String> {
         let message = create_message(self.wsse_client(), profile_token);
 
-        let res = send_request(self.xaddr(), message)?;
+        let res = send_request(self.xaddr(), message).await?;
 
         Ok(parse_response(res).expect("Unexpected error while parsing response"))
     }
@@ -57,12 +59,14 @@ fn create_message(wsse_client: &Client<UsernameToken>, profile_token: &String) -
     })
 }
 
-fn send_request(xaddr: &String, message: String) -> RequestResult<String> {
+async fn send_request(xaddr: &String, message: String) -> RequestResult<String> {
     let response = reqwest::Client::new()
         .post(xaddr)
         .body(message)
-        .send()?
-        .text()?;
+        .send()
+        .await?
+        .text()
+        .await?;
 
     Ok(response)
 }

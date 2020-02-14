@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use reqwest::Result as RequestResult;
 use xml::reader::{EventReader, Result as ParserResult, XmlEvent};
 
@@ -15,11 +16,12 @@ impl Profile {
     }
 }
 
+#[async_trait]
 pub trait GetProfiles: Service {
-    fn get_profiles(&self) -> RequestResult<Vec<Profile>> {
+    async fn get_profiles(&self) -> RequestResult<Vec<Profile>> {
         let message = create_message(self.wsse_client());
 
-        let res = send_request(self.xaddr(), message)?;
+        let res = send_request(self.xaddr(), message).await?;
 
         Ok(parse_response(res).expect("Unexpected error while parsing response"))
     }
@@ -37,12 +39,14 @@ fn create_message(wsse_client: &Client<UsernameToken>) -> String {
     })
 }
 
-fn send_request(xaddr: &String, message: String) -> RequestResult<String> {
+async fn send_request(xaddr: &String, message: String) -> RequestResult<String> {
     let response = reqwest::Client::new()
         .post(xaddr)
         .body(message)
-        .send()?
-        .text()?;
+        .send()
+        .await?
+        .text()
+        .await?;
 
     Ok(response)
 }

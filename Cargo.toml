@@ -18,3 +18,4 @@ reqwest = "0.10.1"
 base64 = "0.11.0"
 tungstenite = "0.10.1"
 tokio = { version = "0.2.11", features = ["full"] }
+async-trait = "0.1.24"

@@ -14,14 +14,14 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(xaddr: String, username: String, password: String) -> Result<Self> {
+    pub async fn new(xaddr: String, username: String, password: String) -> Result<Self> {
         let wsse_client = Client {
             header: UsernameToken::new(username, password),
         };
 
         let devicemgmt = Devicemgmt::new(&xaddr, &wsse_client);
 
-        let capabilities = devicemgmt.get_capabilities()?;
+        let capabilities = devicemgmt.get_capabilities().await?;
 
         Ok(Self {
             xaddr,
