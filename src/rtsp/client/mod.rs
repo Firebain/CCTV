@@ -17,7 +17,7 @@ pub struct RTSPClient {
 }
 
 impl RTSPClient {
-    pub fn connect(url: String) -> Result<Self, RTSPClientError> {
+    pub async fn connect(url: String) -> Result<Self, RTSPClientError> {
         let parsed_url = Url::parse(&url)?;
         if parsed_url.scheme() != "rtsp" {
             return Err(RTSPClientError::WrongUrl("url sheme is not rtsp"));
@@ -31,7 +31,7 @@ impl RTSPClient {
             cseq: 1,
         };
 
-        let methods = client.options()?;
+        let methods = client.options().await?;
         let contains_required_methods = REQUIRED_METHODS
             .iter()
             .all(|item| methods.contains(&item.to_string()));
@@ -45,7 +45,7 @@ impl RTSPClient {
         }
     }
 
-    pub fn describe(&mut self) -> Result<(), RTSPClientError> {
+    pub async fn describe(&mut self) -> Result<(), RTSPClientError> {
         let mut headers = self.default_headers("DESCRIBE");
         headers.push("Accept: application/sdp".to_string());
 
@@ -103,7 +103,7 @@ impl RTSPClient {
         Ok(())
     }
 
-    pub fn options(&mut self) -> Result<Vec<String>, RTSPClientError> {
+    pub async fn options(&mut self) -> Result<Vec<String>, RTSPClientError> {
         let options = self.default_headers("OPTIONS");
 
         self.write(options)?;
