@@ -14,7 +14,6 @@ use image::{DynamicImage, ImageBuffer, GenericImageView, Rgb, ImageFormat};
 use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::Duration;
-use std::sync::mpsc::{sync_channel, Receiver};
 use tungstenite::server::accept;
 use tungstenite::WebSocket;
 use std::sync::{Arc, Mutex};
@@ -33,8 +32,6 @@ fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
 }
 
 async fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, mut rx: mpsc::Receiver<Vec<u8>>) {
-    println!("123");
-
     while let Some(image) = rx.recv().await {
         let mut users = users.lock().unwrap();
 
@@ -190,7 +187,7 @@ async fn main() {
 
     client.play(&session).unwrap();
 
-    thread::sleep(Duration::from_secs(60));
+    thread::sleep(Duration::from_secs(30));
 
     client.teardown(&session).unwrap();
 
