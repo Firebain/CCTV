@@ -1,9 +1,12 @@
+use std::error;
+use std::fmt;
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
+use serde::Serialize;
 use uuid::Uuid;
-use xml::reader::{EventReader, Result, XmlEvent};
+use xml::reader::{EventReader, Error as XmlError, XmlEvent};
 
 use super::soap::headers::Probe;
 use super::soap::Client;
@@ -14,7 +17,9 @@ const DEVICE_TYPES: [&str; 3] = ["NetworkVideoTransmitter", "Device", "NetworkVi
 const READ_TIMEOUT: u64 = 300;
 const RETRY_TIMES: usize = 3;
 
-#[derive(Debug)]
+type DiscoveryResult<T> = Result<T, DiscoveryError>;
+
+#[derive(Debug, Serialize)]
 pub struct ProbeMatch {
     name: String,
     xaddrs: Vec<String>,
@@ -47,44 +52,44 @@ impl ProbeMatchBuilder {
         self.xaddrs = Some(xaddrs);
     }
 
-    fn build(self) -> (String, ProbeMatch) {
-        (
-            self.urn.expect("Response doesn't contains urn"),
+    fn build(self) -> DiscoveryResult<(String, ProbeMatch)> {
+        Ok((
+            self.urn.ok_or(DiscoveryError::UnexpectedError)?,
             ProbeMatch {
-                name: self.name.expect("Response doesn't contains name"),
-                xaddrs: self.xaddrs.expect("Response doesn't contains xaddrs"),
+                name: self.name.ok_or(DiscoveryError::UnexpectedError)?,
+                xaddrs: self.xaddrs.ok_or(DiscoveryError::UnexpectedError)?,
             },
-        )
+        ))
     }
 }
 
-#[allow(dead_code)]
-pub fn discovery() -> Vec<ProbeMatch> {
-    let socket = create_socket();
+pub async fn discovery() -> DiscoveryResult<Vec<ProbeMatch>> {
+    let socket = create_socket()?;
 
-    multicast_probe_messages(&socket);
+    multicast_probe_messages(&socket)?;
 
-    let responses = recv_all_responses(&socket);
+    let responses = recv_all_responses(&socket)?;
 
-    parse_responses(responses).expect("Unexpected error while parsing responses")
+    Ok(parse_responses(responses)?)
 }
 
-fn create_socket() -> UdpSocket {
+fn create_socket() -> DiscoveryResult<UdpSocket> {
     let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));
-    let socket = UdpSocket::bind(free_socket_addr).expect("Could not bind to udp socket");
+    let socket = UdpSocket::bind(free_socket_addr)
+        .map_err(|_| DiscoveryError::UnexpectedError)?;
 
     let timeout = Duration::from_millis(READ_TIMEOUT);
     socket
         .set_read_timeout(Some(timeout))
-        .expect("set_read_timeout call failed");
+        .map_err(|_| DiscoveryError::UnexpectedError)?;
 
-    socket
+    Ok(socket)
 }
 
-fn multicast_probe_messages(socket: &UdpSocket) {
+fn multicast_probe_messages(socket: &UdpSocket) -> DiscoveryResult<()> {
     let multicast_addr: SocketAddr = MULTICAST_ADDR
         .parse()
-        .expect("Error while parsing multicast addr");
+        .map_err(|_| DiscoveryError::UnexpectedError)?;
 
     let messages: Vec<String> = DEVICE_TYPES
         .iter()
@@ -115,14 +120,17 @@ fn multicast_probe_messages(socket: &UdpSocket) {
 
     for message in messages {
         for _ in 0..RETRY_TIMES {
+            println!("2");
             socket
                 .send_to(message.as_bytes(), multicast_addr)
-                .expect("couldn't send data");
+                .map_err(|_| DiscoveryError::UnexpectedError)?;
         }
     }
+
+    Ok(())
 }
 
-fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
+fn recv_all_responses(socket: &UdpSocket) -> DiscoveryResult<Vec<String>> {
     let mut responses = Vec::new();
     loop {
         let mut buf = [0; 65_535];
@@ -130,21 +138,21 @@ fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
         match socket.recv(&mut buf) {
             Ok(amt) => {
                 let string = String::from_utf8(buf[..amt].to_vec())
-                    .expect("Response contains non utf-8 characters");
+                    .map_err(|_| DiscoveryError::UnexpectedError)?;
 
                 responses.push(string);
             }
             Err(err) => match err.kind() {
                 ErrorKind::WouldBlock => break,
-                _ => panic!("Unexpected error while receiving new messages"),
+                _ => return Err(DiscoveryError::UnexpectedError)
             },
         }
     }
 
-    responses
+    Ok(responses)
 }
 
-fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>> {
+fn parse_responses(responses: Vec<String>) -> DiscoveryResult<Vec<ProbeMatch>> {
     let mut probe_matches = HashMap::new();
 
     for response in responses {
@@ -171,7 +179,7 @@ fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>> {
     Ok(probe_matches)
 }
 
-fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> Result<(String, ProbeMatch)> {
+fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> DiscoveryResult<(String, ProbeMatch)> {
     let mut probe_match_builder = ProbeMatchBuilder::new();
 
     loop {
@@ -232,5 +240,28 @@ fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> Result<(String, ProbeMa
         }
     }
 
-    Ok(probe_match_builder.build())
+    Ok(probe_match_builder.build()?)
 }
+
+#[derive(Debug)]
+pub enum DiscoveryError {
+    UnexpectedError
+}
+
+impl From<XmlError> for DiscoveryError {
+    fn from(_: XmlError) -> Self {
+        Self::UnexpectedError
+    }
+}
+
+impl fmt::Display for DiscoveryError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Discovery error: ")?;
+
+        match self {
+            Self::UnexpectedError => write!(f, "Unexpeected Error")
+        }
+    }
+}
+
+impl error::Error for DiscoveryError {}
