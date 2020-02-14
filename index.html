@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <img id="img" style="width: 2000px;"/>
+
+    <script>
+        var wsUri = "ws://127.0.0.1:9001/";
+        var img;
+    
+        function init() {
+            output = document.getElementById("img");
+            testWebSocket();
+        }
+    
+        function testWebSocket() {
+            websocket = new WebSocket(wsUri);
+            websocket.onmessage = function (evt) { onMessage(evt) };
+        }
+    
+        function onMessage(evt) {
+            let reader = new FileReader();
+    
+            reader.readAsDataURL(evt.data);
+    
+            reader.onload = function() {
+                var img = document.getElementById("img");
+                img.src = reader.result;
+            };
+        }
+    
+        window.addEventListener("load", init, false);
+    </script>
+</body>
+</html>
