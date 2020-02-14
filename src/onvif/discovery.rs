@@ -63,7 +63,7 @@ impl ProbeMatchBuilder {
     }
 }
 
-pub async fn discovery() -> DiscoveryResult<Vec<ProbeMatch>> {
+pub fn discovery() -> DiscoveryResult<Vec<ProbeMatch>> {
     let socket = create_socket()?;
 
     multicast_probe_messages(&socket)?;
@@ -120,7 +120,6 @@ fn multicast_probe_messages(socket: &UdpSocket) -> DiscoveryResult<()> {
 
     for message in messages {
         for _ in 0..RETRY_TIMES {
-            println!("2");
             socket
                 .send_to(message.as_bytes(), multicast_addr)
                 .map_err(|_| DiscoveryError::UnexpectedError)?;
@@ -135,6 +134,7 @@ fn recv_all_responses(socket: &UdpSocket) -> DiscoveryResult<Vec<String>> {
     loop {
         let mut buf = [0; 65_535];
 
+        // TODO: Probably it can be async
         match socket.recv(&mut buf) {
             Ok(amt) => {
                 let string = String::from_utf8(buf[..amt].to_vec())

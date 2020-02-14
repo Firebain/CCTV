@@ -181,13 +181,21 @@ mod web;
 //     video_thread.await.unwrap();
 //     control_info_thread.join().unwrap();
 // }
+use std::sync::Mutex;
+use std::collections::HashMap;
 use actix_web::{web as router, App, HttpServer, HttpResponse, guard};
+use web::onvif::AuthorizedCameras;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
+    let cameras_data = router::Data::new(AuthorizedCameras {
+        cameras: Mutex::new(HashMap::new())
+    });
+
+    HttpServer::new(move || {
         App::new()
-            .service(web::onvif::service())
+            .app_data(cameras_data.clone())
+            .configure(web::onvif::config)
             // 404
             .default_service(
                 router::resource("")
