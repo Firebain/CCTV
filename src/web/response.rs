@@ -3,7 +3,7 @@ use std::fmt;
 
 use serde::Serialize;
 use futures::future::{ok, err, Ready};
-use actix_web::{Responder, HttpRequest, HttpResponse, http::StatusCode, Error};
+use actix_web::{Responder, HttpRequest, HttpResponse, http::StatusCode, Error, ResponseError};
 
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
@@ -36,16 +36,6 @@ impl<T: Serialize> Response<T> {
             result: ResultData::Err(message)
         }
     }
-
-    pub fn decide<E>(data: Result<T, E>) -> Response<T> 
-    where
-        E: error::Error + fmt::Display  
-    {
-        match data {
-            Ok(result) => Self::ok(result),
-            Err(err) => Self::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-        }
-    }
 }
 
 impl<T: Serialize> Responder for Response<T> {
@@ -61,5 +51,25 @@ impl<T: Serialize> Responder for Response<T> {
         ok(HttpResponse::build(self.status_code)
             .content_type("application/json")
             .body(body))
+    }
+}
+
+impl<T: Serialize> fmt::Display for Response<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match serde_json::to_string(&self) {
+            Ok(data) => write!(f, "{}", data),
+            Err(err) => write!(f, "{}", Response::<T>::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))
+        }
+    }
+}
+
+impl ResponseError for Response<String> {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code)
+            .json(self)
+    }
+
+    fn status_code(&self) -> StatusCode {
+        self.status_code
     }
 }

@@ -18,77 +18,63 @@ struct CameraInfo {
     password: String
 }
 
-// #[get("/test")]
-// async fn test() -> impl Responder {
-//     "asd"
-// }
-
 #[get("/cameras")]
-async fn get_cameras(shared_data: web::Data<AuthorizedCameras>) -> impl Responder {
-    let cameras = match shared_data.cameras.lock() {
-        Ok(cameras) => cameras,
-        Err(err) => return Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-    };
+async fn get_cameras(shared_data: web::Data<AuthorizedCameras>) -> Result<impl Responder, Response<String>> {
+    let cameras = shared_data.cameras.lock()
+        .map_err(|err| Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
     let pretty_formated: HashMap<String, String> = (*cameras).iter()
         .map(|(key, value)| (key.to_string(), value.xaddr().to_string()))
         .collect();
 
-    Response::ok(pretty_formated)
+    Ok(Response::ok(pretty_formated))
 }
 
 #[post("/cameras")]
-async fn create_camera(shared_data: web::Data<AuthorizedCameras>, camera_info: web::Json<CameraInfo>) -> impl Responder {
+async fn create_camera(shared_data: web::Data<AuthorizedCameras>, camera_info: web::Json<CameraInfo>) -> Result<impl Responder, Response<String>> {
     let camera = onvif::Camera::new(
         camera_info.xaddr.clone(),
         camera_info.login.clone(),
         camera_info.password.clone()
-    ).await;
+    )
+    .await
+    .map_err(|_| Response::err(StatusCode::FORBIDDEN, "Some data is incorrect".to_string()))?;
 
-    match camera {
-        Ok(camera) => {
-            let mut cameras = match shared_data.cameras.lock() {
-                Ok(cameras) => cameras,
-                Err(err) => return Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-            };
+    let mut cameras = shared_data.cameras.lock()
+        .map_err(|err| Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?; 
 
-            let uuid = Uuid::new_v4();
+    let uuid = Uuid::new_v4();
 
-            cameras.insert(uuid, camera);
+    cameras.insert(uuid, camera);
 
-            Response::ok(uuid.to_string())
-        }
-        Err(_) => Response::err(StatusCode::FORBIDDEN, "Some data is incorrect".to_string())
-    }
+    Ok(Response::ok(uuid.to_string()))
 }
 
 #[delete("/cameras/{id}")]
-async fn delete_camera(shared_data: web::Data<AuthorizedCameras>, id: web::Path<String>) -> impl Responder {
-    let mut cameras = match shared_data.cameras.lock() {
-        Ok(cameras) => cameras,
-        Err(err) => return Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-    };
+async fn delete_camera(shared_data: web::Data<AuthorizedCameras>, id: web::Path<String>) -> Result<impl Responder, Response<String>> {
+    let mut cameras = shared_data.cameras.lock()
+        .map_err(|err| Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
-    let result = match &Uuid::parse_str(&id.to_string()) {
-        Ok(uuid) => cameras.remove(uuid),
-        Err(err) => return Response::err(StatusCode::BAD_REQUEST, format!("id parsing error: {}", err))
-    };
+    let uuid = &Uuid::parse_str(&id.to_string())
+        .map_err(|err| Response::err(StatusCode::BAD_REQUEST, format!("id parsing error: {}", err)))?;
+
+    cameras.remove(uuid)
+        .ok_or(Response::err(StatusCode::NOT_FOUND, "Camera not found".to_string()))?;
     
-    match result {
-        Some(_) => Response::ok("Camera was deleted"),
-        None => Response::err(StatusCode::NOT_FOUND, "Camera not found".to_string())
-    }
+    Ok(Response::ok("Camera was deleted"))
 }
 
 #[get("/discovery")]
-async fn discovery() -> impl Responder {
-    Response::decide(onvif::discovery())
+async fn discovery() -> Result<impl Responder, Response<String>> {
+    let probe_matches = onvif::discovery()
+        .map_err(|err| Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+
+    Ok(Response::ok(probe_matches))
 }
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/onvif/")
-            // .service(test)
             .service(get_cameras)
             .service(create_camera)
             .service(delete_camera)
