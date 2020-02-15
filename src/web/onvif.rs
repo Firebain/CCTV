@@ -2,9 +2,10 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use serde::Deserialize;
 use uuid::Uuid;
-use actix_web::{get, post, web, Responder, HttpResponse};
+use actix_web::{get, post, web, Responder, http::StatusCode};
 
 use crate::onvif;
+use super::response::Response;
 
 pub struct AuthorizedCameras {
     pub cameras: Mutex<HashMap<Uuid, onvif::Camera>>
@@ -25,7 +26,7 @@ async fn get_cameras(shared_data: web::Data<AuthorizedCameras>) -> impl Responde
         .map(|(key, value)| (key.to_string(), value.xaddr().to_string()))
         .collect();
 
-    web::Json(pretty_formated)
+    Response::ok(pretty_formated)
 }
 
 #[post("/cameras")]
@@ -40,23 +41,19 @@ async fn create_camera(shared_data: web::Data<AuthorizedCameras>, camera_info: w
         Ok(camera) => {
             let mut cameras = shared_data.cameras.lock().unwrap();
 
-            cameras.insert(Uuid::new_v4(), camera);
+            let uuid = Uuid::new_v4();
 
-            HttpResponse::Ok()
-                .content_type("plain/text")
-                .body("Ok")
+            cameras.insert(uuid, camera);
+
+            Response::ok(uuid.to_string())
         }
-        Err(_) => {
-            HttpResponse::Forbidden()
-                .content_type("plain/text")
-                .body("Something is incorrect")
-        }
+        Err(_) => Response::err(StatusCode::FORBIDDEN, "Some data is incorrect".to_string())
     }
 }
 
 #[get("/discovery")]
 async fn discovery() -> impl Responder {
-    web::Json(onvif::discovery().unwrap())
+    Response::decide(onvif::discovery())
 }
 
 pub fn config(cfg: &mut web::ServiceConfig) {
