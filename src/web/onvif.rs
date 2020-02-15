@@ -2,7 +2,7 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use serde::Deserialize;
 use uuid::Uuid;
-use actix_web::{get, post, web, Responder, http::StatusCode};
+use actix_web::{get, post, delete, web, Responder, http::StatusCode};
 
 use crate::onvif;
 use super::response::Response;
@@ -18,9 +18,17 @@ struct CameraInfo {
     password: String
 }
 
+// #[get("/test")]
+// async fn test() -> impl Responder {
+//     "asd"
+// }
+
 #[get("/cameras")]
 async fn get_cameras(shared_data: web::Data<AuthorizedCameras>) -> impl Responder {
-    let cameras = shared_data.cameras.lock().unwrap();
+    let cameras = match shared_data.cameras.lock() {
+        Ok(cameras) => cameras,
+        Err(err) => return Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    };
 
     let pretty_formated: HashMap<String, String> = (*cameras).iter()
         .map(|(key, value)| (key.to_string(), value.xaddr().to_string()))
@@ -39,7 +47,10 @@ async fn create_camera(shared_data: web::Data<AuthorizedCameras>, camera_info: w
 
     match camera {
         Ok(camera) => {
-            let mut cameras = shared_data.cameras.lock().unwrap();
+            let mut cameras = match shared_data.cameras.lock() {
+                Ok(cameras) => cameras,
+                Err(err) => return Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+            };
 
             let uuid = Uuid::new_v4();
 
@@ -51,6 +62,24 @@ async fn create_camera(shared_data: web::Data<AuthorizedCameras>, camera_info: w
     }
 }
 
+#[delete("/cameras/{id}")]
+async fn delete_camera(shared_data: web::Data<AuthorizedCameras>, id: web::Path<String>) -> impl Responder {
+    let mut cameras = match shared_data.cameras.lock() {
+        Ok(cameras) => cameras,
+        Err(err) => return Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+    };
+
+    let result = match &Uuid::parse_str(&id.to_string()) {
+        Ok(uuid) => cameras.remove(uuid),
+        Err(err) => return Response::err(StatusCode::BAD_REQUEST, format!("id parsing error: {}", err))
+    };
+    
+    match result {
+        Some(_) => Response::ok("Camera was deleted"),
+        None => Response::err(StatusCode::NOT_FOUND, "Camera not found".to_string())
+    }
+}
+
 #[get("/discovery")]
 async fn discovery() -> impl Responder {
     Response::decide(onvif::discovery())
@@ -59,8 +88,10 @@ async fn discovery() -> impl Responder {
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/onvif/")
+            // .service(test)
             .service(get_cameras)
             .service(create_camera)
+            .service(delete_camera)
             .service(discovery)
     );
 }

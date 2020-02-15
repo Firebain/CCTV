@@ -1,5 +1,5 @@
 mod camera;
-mod discovery;
+pub mod discovery;
 pub mod prelude;
 mod services;
 mod soap;
