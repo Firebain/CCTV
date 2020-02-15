@@ -55,10 +55,10 @@ async fn delete_camera(shared_data: web::Data<AuthorizedCameras>, id: web::Path<
     let mut cameras = shared_data.cameras.lock()
         .map_err(|err| Response::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
-    let uuid = &Uuid::parse_str(&id.to_string())
+    let uuid = Uuid::parse_str(&id.to_string())
         .map_err(|err| Response::err(StatusCode::BAD_REQUEST, format!("id parsing error: {}", err)))?;
 
-    cameras.remove(uuid)
+    cameras.remove(&uuid)
         .ok_or(Response::err(StatusCode::NOT_FOUND, "Camera not found".to_string()))?;
     
     Ok(Response::ok("Camera was deleted"))
