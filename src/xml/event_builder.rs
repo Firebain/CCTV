@@ -46,10 +46,10 @@ impl<'a, W: Write> EventBuilder<'a, W> {
         self
     }
 
-    pub fn end(mut self) -> Self {
+    pub fn end(mut self) -> Result<()> {
         self.end = true;
 
-        self
+        self.write()
     }
 
     pub fn write(self) -> Result<()> {

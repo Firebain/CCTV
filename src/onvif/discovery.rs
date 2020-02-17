@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
+use serde_xml_rs::Error;
 use uuid::Uuid;
 use xml::reader::{EventReader, Error as XmlError, XmlEvent};
 
@@ -18,6 +19,42 @@ const READ_TIMEOUT: u64 = 300;
 const RETRY_TIMES: usize = 3;
 
 type DiscoveryResult<T> = Result<T, DiscoveryError>;
+
+#[derive(Debug, Deserialize)]
+struct EndpointReference {
+    #[serde(rename = "Address")]
+    address: String
+}
+
+#[derive(Debug, Deserialize)]
+struct RawProbeMatch {
+    #[serde(rename = "XAddrs")]
+    xaddrs: String,
+    #[serde(rename = "Types")]
+    types: String,
+    #[serde(rename = "Scopes")]
+    scopes: String,
+    #[serde(rename = "EndpointReference")]
+    endpoint_reference: EndpointReference
+}
+
+#[derive(Debug, Deserialize)]
+struct ProbeMatchesContainer {
+    #[serde(rename = "ProbeMatch")]
+    probe_matches: Vec<RawProbeMatch>
+}
+
+#[derive(Debug, Deserialize)]
+struct DiscoveryBody {
+    #[serde(rename = "ProbeMatches")]
+    probe_matches_container: ProbeMatchesContainer
+}
+
+#[derive(Debug, Deserialize)]
+struct Envelope<T> {
+    #[serde(rename = "Body", bound(deserialize = "T: Deserialize<'de>"))]
+    body: T
+}
 
 #[derive(Debug, Serialize)]
 pub struct ProbeMatch {
@@ -108,8 +145,7 @@ fn multicast_probe_messages(socket: &UdpSocket) -> DiscoveryResult<()> {
                     .new_event("d:Types")
                     .ns("dp0", "http://www.onvif.org/ver10/network/wsdl")
                     .content(&format!("dp0:{}", device_type))
-                    .end()
-                    .write()?;
+                    .end()?;
 
                 writer.end_event()?; // Probe
 
@@ -153,6 +189,12 @@ fn recv_all_responses(socket: &UdpSocket) -> DiscoveryResult<Vec<String>> {
 }
 
 fn parse_responses(responses: Vec<String>) -> DiscoveryResult<Vec<ProbeMatch>> {
+    let parsed_responses: Result<Vec<Envelope<DiscoveryBody>>, Error> = responses.iter()
+        .map(|response| serde_xml_rs::from_str(&response))
+        .collect();
+
+    println!("{:?}", parsed_responses);
+
     let mut probe_matches = HashMap::new();
 
     for response in responses {

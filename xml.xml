@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" 
+    xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+    xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" 
+    xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" 
+    xmlns:d3="http://www.onvif.org/ver10/network/wsdl/RemoteDiscoveryBinding" 
+    xmlns:d4="http://www.onvif.org/ver10/network/wsdl/DiscoveryLookupBinding" 
+    xmlns:dn="http://www.onvif.org/ver10/network/wsdl" 
+    xmlns:tnsavg="http://www.avigilon.com/onvif/ver10/topics">
+    <SOAP-ENV:Header>
+        <wsa:MessageID>uuid:283c0c28-4c5c-4318-8c7e-0000595bf778</wsa:MessageID>
+        <wsa:RelatesTo>uuid:ad20dcbe-3d18-47b8-aa90-f5139e2b2479</wsa:RelatesTo>
+        <wsa:ReplyTo SOAP-ENV:mustUnderstand="true">
+            <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+        </wsa:ReplyTo>
+        <wsa:To SOAP-ENV:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
+        <wsa:Action SOAP-ENV:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
+    </SOAP-ENV:Header>
+    <SOAP-ENV:Body>
+        <d:ProbeMatches>
+            <d:ProbeMatch>
+                <wsa:EndpointReference>
+                    <wsa:Address>urn:uuid:00110400-8354-8301-ac36-001104008354</wsa:Address>
+                </wsa:EndpointReference>
+                <d:Types>dn:NetworkVideoTransmitter</d:Types>
+                <d:Scopes>onvif://www.onvif.org/type/video_encoder onvif://www.onvif.org/type/audio_encoder onvif://www.onvif.org/type/ptz onvif://www.onvif.org/hardware/HW0100302 onvif://www.onvif.org/location/country onvif://www.onvif.org/name/IPC1000 onvif://www.onvif.org/Profile/Streaming </d:Scopes>
+                <d:XAddrs>http://192.168.1.88:2000/onvif/device_service </d:XAddrs>
+                <d:MetadataVersion>32152654</d:MetadataVersion>
+            </d:ProbeMatch>
+        </d:ProbeMatches>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

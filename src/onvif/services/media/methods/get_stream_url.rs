@@ -32,16 +32,14 @@ fn create_message(wsse_client: &Client<UsernameToken>, profile_token: &String) -
         writer
             .new_event("ns1:Stream")
             .content("RTP-Unicast")
-            .end()
-            .write()?;
+            .end()?;
 
         writer.new_event("ns1:Transport").write()?;
 
         writer
             .new_event("ns1:Protocol")
             .content("RTSP")
-            .end()
-            .write()?;
+            .end()?;
 
         writer.end_event()?; // Transport
 
@@ -50,8 +48,7 @@ fn create_message(wsse_client: &Client<UsernameToken>, profile_token: &String) -
         writer
             .new_event("ns0:ProfileToken")
             .content(profile_token)
-            .end()
-            .write()?;
+            .end()?;
 
         writer.end_event()?; // GetStreamUri
 

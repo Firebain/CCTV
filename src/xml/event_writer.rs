@@ -1,6 +1,8 @@
-use xml::writer::{EmitterConfig, EventWriter as DefaultEventWriter, Result};
+use xml::writer::{EmitterConfig, EventWriter as DefaultEventWriter};
 
 use super::event_builder::EventBuilder;
+
+pub use xml::writer::Result;
 
 pub struct EventWriter(DefaultEventWriter<Vec<u8>>);
 
@@ -18,12 +20,12 @@ impl<'a> EventWriter {
     }
 
     pub fn end_event(&'a mut self) -> Result<()> {
-        EventBuilder::new(&mut self.0).end().write()
+        EventBuilder::new(&mut self.0).end()
     }
 
     pub fn into_string(self) -> String {
         let buffer = self.0.into_inner();
 
-        String::from_utf8(buffer).expect("Xml contains non utf-8 characters")
+        String::from_utf8_lossy(&buffer).to_string()
     }
 }

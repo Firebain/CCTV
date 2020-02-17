@@ -4,7 +4,7 @@ use rand::prelude::*;
 use xml::writer::Result;
 
 use super::HeaderBuilder;
-use crate::onvif::soap::event_writer::EventWriter;
+use crate::xml::EventWriter;
 
 pub struct UsernameToken {
     username: String,
@@ -57,26 +57,22 @@ impl HeaderBuilder for UsernameToken {
         writer
             .new_event("wsse:Username")
             .content(&self.username)
-            .end()
-            .write()?;
+            .end()?;
 
         writer.new_event("wsse:Password")
             .attr("Type", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest")
             .content(&password)
-            .end()
-            .write()?;
+            .end()?;
 
         writer.new_event("wsse:Nonce")
             .attr("EncodingType", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary")
             .content(&nonce)
-            .end()
-            .write()?;
+            .end()?;
 
         writer.new_event("wsu:Created")
             .ns("wsu", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd")
             .content(&date)
-            .end()
-            .write()?;
+            .end()?;
 
         writer.end_event()?; // UsernameToken
 

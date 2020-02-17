@@ -2,7 +2,7 @@ use uuid::Uuid;
 use xml::writer::Result;
 
 use super::HeaderBuilder;
-use crate::onvif::soap::event_writer::EventWriter;
+use crate::xml::EventWriter;
 
 pub struct Probe {
     uuid: Uuid,
@@ -25,24 +25,21 @@ impl HeaderBuilder for Probe {
             .new_event("a:Action")
             .attr("s:mustUnderstand", "1")
             .content("http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe")
-            .end()
-            .write()?;
+            .end()?;
 
         let message_id = format!("uuid:{}", self.uuid);
 
         writer
             .new_event("a:MessageID")
             .content(&message_id)
-            .end()
-            .write()?;
+            .end()?;
 
         writer.new_event("a:ReplyTo").write()?;
 
         writer
             .new_event("a:Address")
             .content("http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous")
-            .end()
-            .write()?;
+            .end()?;
 
         writer.end_event()?; // ReplyTo
 
@@ -50,8 +47,7 @@ impl HeaderBuilder for Probe {
             .new_event("a:To")
             .attr("s:mustUnderstand", "1")
             .content("urn:schemas-xmlsoap-org:ws:2005:04:discovery")
-            .end()
-            .write()?;
+            .end()?;
 
         writer.end_event()?; // Header
 

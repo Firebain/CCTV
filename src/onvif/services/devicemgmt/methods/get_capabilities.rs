@@ -55,8 +55,7 @@ fn create_message(wsse_client: &Client<UsernameToken>) -> String {
         writer
             .new_event("ns0:GetCapabilities")
             .ns("ns0", "http://www.onvif.org/ver10/device/wsdl")
-            .end()
-            .write()?;
+            .end()?;
 
         Ok(())
     })
