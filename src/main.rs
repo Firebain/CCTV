@@ -6,8 +6,8 @@ mod onvif;
 // // use rtsp::client::RTSPClient;
 // // use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
-use onvif::prelude::*;
-use onvif::Camera;
+// use onvif::prelude::*;
+// use onvif::Camera;
 
 // // use std::net::{TcpListener, TcpStream};
 // // use image::{DynamicImage, ImageBuffer, GenericImageView, Rgb, ImageFormat};
@@ -258,7 +258,7 @@ struct Envelope<T> {
 
 #[tokio::main]
 async fn main() {
-    onvif::discovery().unwrap();
+    println!("{:?}", onvif::discovery().await.unwrap());
     // let mut file = File::open("xml.xml").unwrap();
 
     // let mut data = String::new();

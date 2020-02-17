@@ -8,7 +8,7 @@ pub struct Client<HB: HeaderBuilder> {
 }
 
 impl<HB: HeaderBuilder> Client<HB> {
-    fn try_build<BF>(&self, body: BF) -> Result<String>
+    pub fn build<BF>(&self, body_builder: BF) -> Result<String>
     where
         BF: Fn(&mut EventWriter) -> Result<()>,
     {
@@ -23,20 +23,12 @@ impl<HB: HeaderBuilder> Client<HB> {
 
         writer.new_event("s:Body").write()?;
 
-        body(&mut writer)?;
+        body_builder(&mut writer)?;
 
         writer.end_event()?; // Body
 
         writer.end_event()?; // Envelope
 
         Ok(writer.into_string())
-    }
-
-    pub fn build<BF>(&self, body_builder: BF) -> String
-    where
-        BF: Fn(&mut EventWriter) -> Result<()>,
-    {
-        self.try_build(body_builder)
-            .expect("Error while building xml")
     }
 }

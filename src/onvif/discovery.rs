@@ -1,16 +1,18 @@
-use std::error;
-use std::fmt;
-use std::collections::HashMap;
-use std::io::ErrorKind;
+use std::{fmt, error, result};
+use std::collections::HashSet;
+use std::io::{Error as IOError, ErrorKind};
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
-use serde::{Serialize, Deserialize};
-use serde_xml_rs::Error;
-use uuid::Uuid;
-use xml::reader::{EventReader, Error as XmlError, XmlEvent};
+use std::convert::TryFrom;
 
+use serde::{Serialize, Deserialize};
+use serde_xml_rs::Error as XmlParsingError;
+use uuid::Uuid;
+
+use crate::xml::Result as XmlBuilderResult;
 use super::soap::headers::Probe;
 use super::soap::Client;
+
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
 
@@ -18,89 +20,111 @@ const DEVICE_TYPES: [&str; 3] = ["NetworkVideoTransmitter", "Device", "NetworkVi
 const READ_TIMEOUT: u64 = 300;
 const RETRY_TIMES: usize = 3;
 
-type DiscoveryResult<T> = Result<T, DiscoveryError>;
 
-#[derive(Debug, Deserialize)]
+type Result<T> = result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    ParsingError(XmlParsingError),
+    IOError(IOError),
+    UnexpectedError(&'static str)
+}
+
+impl From<XmlParsingError> for Error {
+    fn from(err: XmlParsingError) -> Self {
+        Self::ParsingError(err)
+    }
+}
+
+impl From<IOError> for Error {
+    fn from(err: IOError) -> Self {
+        Self::IOError(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::ParsingError(err) => write!(f, "Parsing err: {}", err),
+            Self::IOError(err) => write!(f, "IO err: {}", err),
+            Self::UnexpectedError(err) => write!(f, "Unexpected err: {}", err)
+        }
+    }
+}
+
+impl error::Error for Error {}
+
+
+#[derive(Deserialize)]
 struct EndpointReference {
     #[serde(rename = "Address")]
     address: String
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct RawProbeMatch {
     #[serde(rename = "XAddrs")]
     xaddrs: String,
-    #[serde(rename = "Types")]
-    types: String,
     #[serde(rename = "Scopes")]
     scopes: String,
     #[serde(rename = "EndpointReference")]
     endpoint_reference: EndpointReference
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct ProbeMatchesContainer {
     #[serde(rename = "ProbeMatch")]
     probe_matches: Vec<RawProbeMatch>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct DiscoveryBody {
     #[serde(rename = "ProbeMatches")]
     probe_matches_container: ProbeMatchesContainer
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct Envelope<T> {
     #[serde(rename = "Body", bound(deserialize = "T: Deserialize<'de>"))]
     body: T
 }
 
-#[derive(Debug, Serialize)]
+
+#[derive(Hash, Eq, PartialEq, Debug, Serialize)]
 pub struct ProbeMatch {
+    address: String,
     name: String,
     xaddrs: Vec<String>,
 }
 
-struct ProbeMatchBuilder {
-    urn: Option<String>,
-    name: Option<String>,
-    xaddrs: Option<Vec<String>>,
-}
+impl TryFrom<RawProbeMatch> for ProbeMatch {
+    type Error = Error;
 
-impl ProbeMatchBuilder {
-    fn new() -> Self {
-        Self {
-            urn: None,
-            name: None,
-            xaddrs: None,
-        }
-    }
+    fn try_from(raw_probe_match: RawProbeMatch) -> Result<Self> {
+        let address = raw_probe_match.endpoint_reference.address[9..].to_string();
 
-    fn urn(&mut self, urn: String) {
-        self.urn = Some(urn);
-    }
+        let name = raw_probe_match.scopes.split(' ')
+            .find(|scope| scope.starts_with("onvif://www.onvif.org/name"))
+            .ok_or(Error::UnexpectedError("Name scope is missing"))?
+            .split('/')
+            .last()
+            .ok_or(Error::UnexpectedError("Name scope is empty"))?
+            .to_string();
 
-    fn name(&mut self, name: String) {
-        self.name = Some(name);
-    }
+        let xaddrs: Vec<String> = raw_probe_match.xaddrs.split(' ')
+            .map(|xaddr| xaddr.to_string())
+            .collect();
 
-    fn xaddrs(&mut self, xaddrs: Vec<String>) {
-        self.xaddrs = Some(xaddrs);
-    }
-
-    fn build(self) -> DiscoveryResult<(String, ProbeMatch)> {
-        Ok((
-            self.urn.ok_or(DiscoveryError::UnexpectedError)?,
-            ProbeMatch {
-                name: self.name.ok_or(DiscoveryError::UnexpectedError)?,
-                xaddrs: self.xaddrs.ok_or(DiscoveryError::UnexpectedError)?,
-            },
-        ))
+        Ok(Self {
+            address,
+            name,
+            xaddrs
+        })
     }
 }
 
-pub fn discovery() -> DiscoveryResult<Vec<ProbeMatch>> {
+
+pub async fn discovery() -> Result<Vec<ProbeMatch>> {
     let socket = create_socket()?;
 
     multicast_probe_messages(&socket)?;
@@ -110,25 +134,23 @@ pub fn discovery() -> DiscoveryResult<Vec<ProbeMatch>> {
     Ok(parse_responses(responses)?)
 }
 
-fn create_socket() -> DiscoveryResult<UdpSocket> {
+fn create_socket() -> Result<UdpSocket> {
     let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));
-    let socket = UdpSocket::bind(free_socket_addr)
-        .map_err(|_| DiscoveryError::UnexpectedError)?;
+    let socket = UdpSocket::bind(free_socket_addr)?;
 
     let timeout = Duration::from_millis(READ_TIMEOUT);
     socket
-        .set_read_timeout(Some(timeout))
-        .map_err(|_| DiscoveryError::UnexpectedError)?;
+        .set_read_timeout(Some(timeout))?;
 
     Ok(socket)
 }
 
-fn multicast_probe_messages(socket: &UdpSocket) -> DiscoveryResult<()> {
+fn multicast_probe_messages(socket: &UdpSocket) -> Result<()> {
     let multicast_addr: SocketAddr = MULTICAST_ADDR
         .parse()
-        .map_err(|_| DiscoveryError::UnexpectedError)?;
+        .map_err(|_| Error::UnexpectedError("Error while parsing multicast addr"))?;
 
-    let messages: Vec<String> = DEVICE_TYPES
+    let messages = DEVICE_TYPES
         .iter()
         .map(|device_type| {
             let client = Client {
@@ -152,20 +174,20 @@ fn multicast_probe_messages(socket: &UdpSocket) -> DiscoveryResult<()> {
                 Ok(())
             })
         })
-        .collect();
+        .collect::<XmlBuilderResult<Vec<String>>>()
+        .map_err(|_| Error::UnexpectedError("Xml builder error"))?;
 
     for message in messages {
         for _ in 0..RETRY_TIMES {
             socket
-                .send_to(message.as_bytes(), multicast_addr)
-                .map_err(|_| DiscoveryError::UnexpectedError)?;
+                .send_to(message.as_bytes(), multicast_addr)?;
         }
     }
 
     Ok(())
 }
 
-fn recv_all_responses(socket: &UdpSocket) -> DiscoveryResult<Vec<String>> {
+fn recv_all_responses(socket: &UdpSocket) -> Result<Vec<String>> {
     let mut responses = Vec::new();
     loop {
         let mut buf = [0; 65_535];
@@ -174,13 +196,13 @@ fn recv_all_responses(socket: &UdpSocket) -> DiscoveryResult<Vec<String>> {
         match socket.recv(&mut buf) {
             Ok(amt) => {
                 let string = String::from_utf8(buf[..amt].to_vec())
-                    .map_err(|_| DiscoveryError::UnexpectedError)?;
+                    .map_err(|_| Error::UnexpectedError("Response contains none utf-8 chars"))?;
 
                 responses.push(string);
             }
             Err(err) => match err.kind() {
                 ErrorKind::WouldBlock => break,
-                _ => return Err(DiscoveryError::UnexpectedError)
+                _ => return Err(Error::IOError(err))
             },
         }
     }
@@ -188,122 +210,20 @@ fn recv_all_responses(socket: &UdpSocket) -> DiscoveryResult<Vec<String>> {
     Ok(responses)
 }
 
-fn parse_responses(responses: Vec<String>) -> DiscoveryResult<Vec<ProbeMatch>> {
-    let parsed_responses: Result<Vec<Envelope<DiscoveryBody>>, Error> = responses.iter()
+fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>> {
+    let parsed_responses = responses.into_iter()
         .map(|response| serde_xml_rs::from_str(&response))
-        .collect();
+        .collect::<result::Result<Vec<Envelope<DiscoveryBody>>, XmlParsingError>>()?;
 
-    println!("{:?}", parsed_responses);
+    let unique_probe_matches = parsed_responses
+        .into_iter()
+        .flat_map(|response| response.body.probe_matches_container.probe_matches)
+        .map(ProbeMatch::try_from)
+        .collect::<Result<HashSet<ProbeMatch>>>()?;
 
-    let mut probe_matches = HashMap::new();
-
-    for response in responses {
-        let mut parser = EventReader::from_str(&response);
-        loop {
-            let event = parser.next()?;
-
-            match event {
-                XmlEvent::StartElement { name, .. } => {
-                    if let "ProbeMatch" = name.local_name.as_str() {
-                        let (urn, probe_match) = parse_probe_match(&mut parser)?;
-
-                        probe_matches.insert(urn, probe_match);
-                    }
-                }
-                XmlEvent::EndDocument => break,
-                _ => {}
-            }
-        }
-    }
-
-    let probe_matches = probe_matches.into_iter().map(|(_, val)| val).collect();
+    let probe_matches = unique_probe_matches
+        .into_iter()
+        .collect::<Vec<ProbeMatch>>();
 
     Ok(probe_matches)
 }
-
-fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> DiscoveryResult<(String, ProbeMatch)> {
-    let mut probe_match_builder = ProbeMatchBuilder::new();
-
-    loop {
-        let event = parser.next()?;
-
-        match event {
-            XmlEvent::StartElement { name, .. } => match name.local_name.as_str() {
-                "EndpointReference" => {
-                    let event = parser.next()?;
-
-                    if let XmlEvent::StartElement { name, .. } = event {
-                        if let "Address" = name.local_name.as_str() {
-                            let event = parser.next()?;
-
-                            if let XmlEvent::Characters(urn) = event {
-                                probe_match_builder.urn(urn);
-                            }
-                        }
-                    }
-                }
-                "Scopes" => {
-                    let event = parser.next()?;
-
-                    if let XmlEvent::Characters(scopes) = event {
-                        let scopes = scopes.split(' ');
-
-                        for scope in scopes {
-                            if scope.starts_with("onvif://www.onvif.org/name") {
-                                let parts: Vec<&str> = scope.split('/').collect();
-
-                                let name = parts[parts.len() - 1];
-
-                                probe_match_builder.name(name.to_string());
-                            }
-                        }
-                    }
-                }
-                "XAddrs" => {
-                    let event = parser.next()?;
-                    if let XmlEvent::Characters(xaddrs) = event {
-                        let xaddrs = xaddrs
-                            .split(' ')
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_string())
-                            .collect();
-
-                        probe_match_builder.xaddrs(xaddrs);
-                    }
-                }
-                _ => {}
-            },
-            XmlEvent::EndElement { name } => {
-                if let "ProbeMatch" = name.local_name.as_str() {
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Ok(probe_match_builder.build()?)
-}
-
-#[derive(Debug)]
-pub enum DiscoveryError {
-    UnexpectedError
-}
-
-impl From<XmlError> for DiscoveryError {
-    fn from(_: XmlError) -> Self {
-        Self::UnexpectedError
-    }
-}
-
-impl fmt::Display for DiscoveryError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Discovery error: ")?;
-
-        match self {
-            Self::UnexpectedError => write!(f, "Unexpeected Error")
-        }
-    }
-}
-
-impl error::Error for DiscoveryError {}
