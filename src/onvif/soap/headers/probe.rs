@@ -29,10 +29,7 @@ impl HeaderBuilder for Probe {
 
         let message_id = format!("uuid:{}", self.uuid);
 
-        writer
-            .new_event("a:MessageID")
-            .content(&message_id)
-            .end()?;
+        writer.new_event("a:MessageID").content(&message_id).end()?;
 
         writer.new_event("a:ReplyTo").write()?;
 

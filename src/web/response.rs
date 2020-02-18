@@ -1,14 +1,14 @@
 use std::fmt;
 
+use actix_web::{http::StatusCode, Error, HttpRequest, HttpResponse, Responder, ResponseError};
+use futures::future::{err, ok, Ready};
 use serde::Serialize;
-use futures::future::{ok, err, Ready};
-use actix_web::{Responder, HttpRequest, HttpResponse, http::StatusCode, Error, ResponseError};
 
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum ResultData<T: Serialize> {
     Ok(T),
-    Err(String)
+    Err(String),
 }
 
 #[derive(Serialize, Debug)]
@@ -16,7 +16,7 @@ pub struct Response<T: Serialize> {
     ok: bool,
     #[serde(skip_serializing)]
     status_code: StatusCode,
-    result: ResultData<T>
+    result: ResultData<T>,
 }
 
 impl<T: Serialize> Response<T> {
@@ -24,7 +24,7 @@ impl<T: Serialize> Response<T> {
         Response {
             ok: true,
             status_code: StatusCode::OK,
-            result: ResultData::Ok(result)
+            result: ResultData::Ok(result),
         }
     }
 
@@ -32,7 +32,7 @@ impl<T: Serialize> Response<T> {
         Response {
             ok: false,
             status_code,
-            result: ResultData::Err(message)
+            result: ResultData::Err(message),
         }
     }
 }
@@ -57,15 +57,18 @@ impl<T: Serialize> fmt::Display for Response<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match serde_json::to_string(&self) {
             Ok(data) => write!(f, "{}", data),
-            Err(err) => write!(f, "{}", Response::<T>::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))
+            Err(err) => write!(
+                f,
+                "{}",
+                Response::<T>::err(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+            ),
         }
     }
 }
 
 impl ResponseError for Response<String> {
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code)
-            .json(self)
+        HttpResponse::build(self.status_code).json(self)
     }
 
     fn status_code(&self) -> StatusCode {

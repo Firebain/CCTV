@@ -1,7 +1,7 @@
 use xml::writer::Result;
 
-use crate::xml::EventWriter;
 use super::headers::HeaderBuilder;
+use crate::xml::EventWriter;
 
 pub struct Client<HB: HeaderBuilder> {
     pub header: HB,

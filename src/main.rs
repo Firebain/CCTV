@@ -1,7 +1,7 @@
-mod xml;
 mod onvif;
+mod xml;
 // // mod rtsp;
-// mod web;
+mod web;
 
 // // use rtsp::client::RTSPClient;
 // // use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
@@ -74,7 +74,7 @@ mod onvif;
 // //     let mut rtp_sequence = RTPSequence::new();
 
 // //     // let (sync_sender, receiver) = sync_channel(100);
-    
+
 // //     let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
 // //     let users_1 = Arc::clone(&users);
 // //     let users_2 = Arc::clone(&users);
@@ -182,91 +182,33 @@ mod onvif;
 // //     video_thread.await.unwrap();
 // //     control_info_thread.join().unwrap();
 // // }
-// use std::sync::Mutex;
-// use std::collections::HashMap;
-// use actix_web::{web as router, App, HttpServer, HttpResponse, guard};
+use actix_web::{guard, web as router, App, HttpResponse, HttpServer};
+use std::collections::HashMap;
+use std::sync::Mutex;
 // use web::onvif::AuthorizedCameras;
 
-// #[actix_rt::main]
-// async fn main() -> std::io::Result<()> {
-//     let cameras_data = router::Data::new(AuthorizedCameras {
-//         cameras: Mutex::new(HashMap::new())
-//     });
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    // let cameras_data = router::Data::new(AuthorizedCameras {
+    //     cameras: Mutex::new(HashMap::new())
+    // });
 
-//     HttpServer::new(move || {
-//         App::new()
-//             .app_data(cameras_data.clone())
-//             .configure(web::onvif::config)
-//             // 404
-//             .default_service(
-//                 router::resource("")
-//                     .route(
-//                         router::get()
-//                             .to(HttpResponse::NotFound)
-//                     )
-//                     .route(
-//                         router::route()
-//                             .guard(guard::Not(guard::Get()))
-//                             .to(HttpResponse::MethodNotAllowed),
-//                     ),
-//             )
-//     })
-//     .bind("127.0.0.1:8080")?
-//     .run()
-//     .await
-// }
-
-use serde::{Serialize, Deserialize};
-use std::fs::File;
-use std::io::prelude::*;
-
-#[derive(Debug, Deserialize)]
-struct EndpointReference {
-    #[serde(rename = "Address")]
-    address: String
-}
-
-#[derive(Debug, Deserialize)]
-struct RawProbeMatch {
-    #[serde(rename = "XAddrs")]
-    xaddrs: String,
-    #[serde(rename = "Types")]
-    types: String,
-    #[serde(rename = "Scopes")]
-    scopes: String,
-    #[serde(rename = "EndpointReference")]
-    endpoint_reference: EndpointReference
-}
-
-#[derive(Debug, Deserialize)]
-struct ProbeMatchesContainer {
-    #[serde(rename = "ProbeMatch")]
-    probe_matches: Vec<RawProbeMatch>
-}
-
-#[derive(Debug, Deserialize)]
-struct DiscoveryBody {
-    #[serde(rename = "ProbeMatches")]
-    probe_matches_container: ProbeMatchesContainer
-}
-
-#[derive(Debug, Deserialize)]
-struct Envelope<T> {
-    #[serde(rename = "Body", bound(deserialize = "T: Deserialize<'de>"))]
-    body: T
-}
-
-#[tokio::main]
-async fn main() {
-    println!("{:?}", onvif::discovery().await.unwrap());
-    // let mut file = File::open("xml.xml").unwrap();
-
-    // let mut data = String::new();
-    // file.read_to_string(&mut data).unwrap();
-    
-    // println!("{}", data);
-
-    // let item: Envelope<DiscoveryBody> = serde_xml_rs::from_str(&data).unwrap();
-
-    // println!("{:?}", item);
+    HttpServer::new(move || {
+        App::new()
+            // .app_data(cameras_data.clone())
+            .configure(web::onvif::config)
+            // 404
+            .default_service(
+                router::resource("")
+                    .route(router::get().to(HttpResponse::NotFound))
+                    .route(
+                        router::route()
+                            .guard(guard::Not(guard::Get()))
+                            .to(HttpResponse::MethodNotAllowed),
+                    ),
+            )
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }

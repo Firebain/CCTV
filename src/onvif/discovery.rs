@@ -1,18 +1,17 @@
-use std::{fmt, error, result};
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::io::{Error as IOError, ErrorKind};
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
-use std::convert::TryFrom;
+use std::{error, fmt, result};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_xml_rs::Error as XmlParsingError;
 use uuid::Uuid;
 
-use crate::xml::Result as XmlBuilderResult;
 use super::soap::headers::Probe;
 use super::soap::Client;
-
+use crate::xml::Result as XmlBuilderResult;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
 
@@ -20,14 +19,13 @@ const DEVICE_TYPES: [&str; 3] = ["NetworkVideoTransmitter", "Device", "NetworkVi
 const READ_TIMEOUT: u64 = 300;
 const RETRY_TIMES: usize = 3;
 
-
 type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
     ParsingError(XmlParsingError),
     IOError(IOError),
-    UnexpectedError(&'static str)
+    UnexpectedError(&'static str),
 }
 
 impl From<XmlParsingError> for Error {
@@ -47,18 +45,17 @@ impl fmt::Display for Error {
         match self {
             Self::ParsingError(err) => write!(f, "Parsing err: {}", err),
             Self::IOError(err) => write!(f, "IO err: {}", err),
-            Self::UnexpectedError(err) => write!(f, "Unexpected err: {}", err)
+            Self::UnexpectedError(err) => write!(f, "Unexpected err: {}", err),
         }
     }
 }
 
 impl error::Error for Error {}
 
-
 #[derive(Deserialize)]
 struct EndpointReference {
     #[serde(rename = "Address")]
-    address: String
+    address: String,
 }
 
 #[derive(Deserialize)]
@@ -68,32 +65,32 @@ struct RawProbeMatch {
     #[serde(rename = "Scopes")]
     scopes: String,
     #[serde(rename = "EndpointReference")]
-    endpoint_reference: EndpointReference
+    endpoint_reference: EndpointReference,
 }
 
 #[derive(Deserialize)]
 struct ProbeMatchesContainer {
     #[serde(rename = "ProbeMatch")]
-    probe_matches: Vec<RawProbeMatch>
+    probe_matches: Vec<RawProbeMatch>,
 }
 
 #[derive(Deserialize)]
 struct DiscoveryBody {
     #[serde(rename = "ProbeMatches")]
-    probe_matches_container: ProbeMatchesContainer
+    probe_matches_container: ProbeMatchesContainer,
 }
 
 #[derive(Deserialize)]
 struct Envelope<T> {
     #[serde(rename = "Body", bound(deserialize = "T: Deserialize<'de>"))]
-    body: T
+    body: T,
 }
-
 
 #[derive(Hash, Eq, PartialEq, Debug, Serialize)]
 pub struct ProbeMatch {
-    address: String,
     name: String,
+    #[serde(skip)]
+    id: String,
     xaddrs: Vec<String>,
 }
 
@@ -101,9 +98,11 @@ impl TryFrom<RawProbeMatch> for ProbeMatch {
     type Error = Error;
 
     fn try_from(raw_probe_match: RawProbeMatch) -> Result<Self> {
-        let address = raw_probe_match.endpoint_reference.address[9..].to_string();
+        let id = raw_probe_match.endpoint_reference.address[9..].to_string();
 
-        let name = raw_probe_match.scopes.split(' ')
+        let name = raw_probe_match
+            .scopes
+            .split(' ')
             .find(|scope| scope.starts_with("onvif://www.onvif.org/name"))
             .ok_or(Error::UnexpectedError("Name scope is missing"))?
             .split('/')
@@ -111,18 +110,15 @@ impl TryFrom<RawProbeMatch> for ProbeMatch {
             .ok_or(Error::UnexpectedError("Name scope is empty"))?
             .to_string();
 
-        let xaddrs: Vec<String> = raw_probe_match.xaddrs.split(' ')
+        let xaddrs: Vec<String> = raw_probe_match
+            .xaddrs
+            .split(' ')
             .map(|xaddr| xaddr.to_string())
             .collect();
 
-        Ok(Self {
-            address,
-            name,
-            xaddrs
-        })
+        Ok(Self { name, id, xaddrs })
     }
 }
-
 
 pub async fn discovery() -> Result<Vec<ProbeMatch>> {
     let socket = create_socket()?;
@@ -139,8 +135,7 @@ fn create_socket() -> Result<UdpSocket> {
     let socket = UdpSocket::bind(free_socket_addr)?;
 
     let timeout = Duration::from_millis(READ_TIMEOUT);
-    socket
-        .set_read_timeout(Some(timeout))?;
+    socket.set_read_timeout(Some(timeout))?;
 
     Ok(socket)
 }
@@ -179,8 +174,7 @@ fn multicast_probe_messages(socket: &UdpSocket) -> Result<()> {
 
     for message in messages {
         for _ in 0..RETRY_TIMES {
-            socket
-                .send_to(message.as_bytes(), multicast_addr)?;
+            socket.send_to(message.as_bytes(), multicast_addr)?;
         }
     }
 
@@ -202,7 +196,7 @@ fn recv_all_responses(socket: &UdpSocket) -> Result<Vec<String>> {
             }
             Err(err) => match err.kind() {
                 ErrorKind::WouldBlock => break,
-                _ => return Err(Error::IOError(err))
+                _ => return Err(Error::IOError(err)),
             },
         }
     }
@@ -211,9 +205,11 @@ fn recv_all_responses(socket: &UdpSocket) -> Result<Vec<String>> {
 }
 
 fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>> {
-    let parsed_responses = responses.into_iter()
+    let parsed_responses = responses
+        .into_iter()
         .map(|response| serde_xml_rs::from_str(&response))
-        .collect::<result::Result<Vec<Envelope<DiscoveryBody>>, XmlParsingError>>()?;
+        .map(|result| result.map_err(|err| Error::ParsingError(err)))
+        .collect::<Result<Vec<Envelope<DiscoveryBody>>>>()?;
 
     let unique_probe_matches = parsed_responses
         .into_iter()
