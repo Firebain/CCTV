@@ -45,7 +45,7 @@ impl RTSPClient {
         }
     }
 
-    pub async fn describe(&mut self) -> Result<(), RTSPClientError> {
+    pub fn describe(&mut self) -> Result<(), RTSPClientError> {
         let mut headers = self.default_headers("DESCRIBE");
         headers.push("Accept: application/sdp".to_string());
 

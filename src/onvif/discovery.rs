@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use super::soap::headers::Probe;
 use super::soap::Client;
+use super::soap::Envelope;
 use crate::xml::Result as XmlBuilderResult;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
@@ -78,12 +79,6 @@ struct ProbeMatchesContainer {
 struct DiscoveryBody {
     #[serde(rename = "ProbeMatches")]
     probe_matches_container: ProbeMatchesContainer,
-}
-
-#[derive(Deserialize)]
-struct Envelope<T> {
-    #[serde(rename = "Body", bound(deserialize = "T: Deserialize<'de>"))]
-    body: T,
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Serialize)]
