@@ -1,10 +1,8 @@
-use tokio::sync::mpsc;
+use std::sync::mpsc;
 
 use super::services::{Devicemgmt, Media};
 use super::soap::headers::UsernameToken;
 use super::soap::Client;
-
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgb};
 
 use crate::rtsp::client::RTSPClient;
 use crate::rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
@@ -13,43 +11,9 @@ use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::{error, fmt};
 
-use tokio::runtime::Runtime;
-
-async fn process_image(data: Vec<u8>, mut tx: mpsc::Sender<Vec<u8>>) {
-    let img = image::load_from_memory(&data).unwrap();
-
-    let dimensions = img.dimensions();
-
-    let container = img.to_bytes();
-    let pixels: Vec<&[u8]> = container.chunks(3).collect();
-    let rows: Vec<&[&[u8]]> = pixels.chunks(dimensions.0 as usize).collect();
-
-    let mut new_image = Vec::new();
-
-    for row in rows {
-        let mut new_row = Vec::new();
-        for rgb in row {
-            new_row.extend_from_slice(rgb);
-        }
-
-        new_image.append(&mut new_row.repeat(2));
-    }
-
-    let new_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
-        ImageBuffer::from_vec(dimensions.0 * 2, dimensions.1, new_image).unwrap();
-    let new_image = DynamicImage::ImageRgb8(new_image);
-
-    let mut bytes = Vec::new();
-    new_image.write_to(&mut bytes, ImageFormat::Jpeg).unwrap();
-
-    tx.send(bytes).await.unwrap();
-}
-
-fn video_handler(socket: UdpSocket, sender: mpsc::Sender<Vec<u8>>) {
+fn video_handler(number: i8, socket: UdpSocket, sender: mpsc::Sender<(i8, Vec<u8>)>) {
     println!("video handler start");
     let mut rtp_sequence = RTPSequence::new();
-
-    let rt = Runtime::new().unwrap();
 
     loop {
         let mut buf = [0; 65_535];
@@ -61,9 +25,10 @@ fn video_handler(socket: UdpSocket, sender: mpsc::Sender<Vec<u8>>) {
         match rtp_sequence.push(buf) {
             Ok(status) => {
                 if let RTPSequenceStatus::LastPacket(data) = status {
-                    let tx = sender.clone();
-
-                    rt.spawn(process_image(data, tx));
+                    match sender.send((number, data)) {
+                        Ok(_) => (),
+                        Err(err) => panic!(format!("{}", err)),
+                    };
 
                     rtp_sequence.clean();
                 }
@@ -136,7 +101,7 @@ impl Camera {
         })
     }
 
-    pub fn start(&mut self, sender: mpsc::Sender<Vec<u8>>) {
+    pub fn start(&mut self, number: i8, sender: mpsc::Sender<(i8, Vec<u8>)>) {
         self.rtsp.describe().unwrap();
 
         let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));
@@ -148,7 +113,7 @@ impl Camera {
 
         let cloned_main_socket = main_socket.try_clone().unwrap();
         println!("video handler spawn");
-        self.thread = Some(thread::spawn(|| video_handler(cloned_main_socket, sender)));
+        thread::spawn(move || video_handler(number, cloned_main_socket, sender));
 
         self.session = self
             .rtsp
