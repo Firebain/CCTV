@@ -11,7 +11,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::{error, fmt};
 
-fn video_handler(number: i8, socket: UdpSocket, sender: mpsc::Sender<(i8, Vec<u8>)>) {
+fn video_handler(number: usize, socket: UdpSocket, sender: mpsc::Sender<(usize, Vec<u8>)>) {
     println!("video handler start");
     let mut rtp_sequence = RTPSequence::new();
 
@@ -101,7 +101,7 @@ impl Camera {
         })
     }
 
-    pub fn start(&mut self, number: i8, sender: mpsc::Sender<(i8, Vec<u8>)>) {
+    pub fn start(&mut self, number: usize, sender: mpsc::Sender<(usize, Vec<u8>)>) {
         self.rtsp.describe().unwrap();
 
         let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));

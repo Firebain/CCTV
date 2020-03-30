@@ -11,83 +11,44 @@ use tungstenite::server::accept;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgb};
+use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgb, Rgba};
 use std::sync::mpsc;
 
-// Вместо вызываемой функции сделать так, что бы сюда шли все картинки
-// со всех камер формата (i8, Vec<u8>), где i8 - порядковый номер камеры,
-// а Vec<u8> - самара картинка. Кешировать все картинки в памяти и заменять
-// картинками из потока
-fn process_image(sender: mpsc::Sender<Vec<u8>>, receiver: mpsc::Receiver<(i8, Vec<u8>)>) {
-    println!("process image");
-    let (_, image) = receiver.recv().unwrap();
+fn process_image(sender: mpsc::Sender<Vec<u8>>, receiver: mpsc::Receiver<(usize, Vec<u8>)>) {
+    let mut cache: Option<ImageBuffer<Rgba<u8>, Vec<u8>>> = None;
 
-    sender.send(image).unwrap();
-    // let img1 = (0, image::load_from_memory(&data).unwrap());
-    // let img2 = (1, image::load_from_memory(&data).unwrap());
-    // let img3 = (2, image::load_from_memory(&data).unwrap());
-    // let img4 = (3, image::load_from_memory(&data).unwrap());
+    loop {
+        let (number, image) = receiver.recv().unwrap();
 
-    // let dimensions1 = img1.1.dimensions();
-    // let dimensions2 = img2.1.dimensions();
-    // let dimensions3 = img3.1.dimensions();
-    // let dimensions4 = img4.1.dimensions();
+        let img = image::load_from_memory(&image).unwrap();
 
-    // let container1 = img1.1.to_bytes();
-    // let container2 = img2.1.to_bytes();
-    // let container3 = img3.1.to_bytes();
-    // let container4 = img4.1.to_bytes();
+        let dimensions = img.dimensions();
 
-    // let pixels1: Vec<&[u8]> = container1.chunks(3).collect();
-    // let pixels2: Vec<&[u8]> = container2.chunks(3).collect();
-    // let pixels3: Vec<&[u8]> = container3.chunks(3).collect();
-    // let pixels4: Vec<&[u8]> = container4.chunks(3).collect();
+        let mut image = cache.unwrap_or(ImageBuffer::<Rgba<u8>, Vec<u8>>::new(
+            dimensions.0 * 2,
+            dimensions.1 * 2,
+        ));
 
-    // let rows1: Vec<&[&[u8]]> = pixels1.chunks(dimensions1.0 as usize).collect();
-    // let rows2: Vec<&[&[u8]]> = pixels2.chunks(dimensions2.0 as usize).collect();
-    // let rows3: Vec<&[&[u8]]> = pixels3.chunks(dimensions3.0 as usize).collect();
-    // let rows4: Vec<&[&[u8]]> = pixels4.chunks(dimensions4.0 as usize).collect();
+        let (x, y) = match number {
+            0 => (0, 0),
+            1 => (dimensions.0, 0),
+            2 => (0, dimensions.1),
+            3 => (dimensions.0, dimensions.1),
+            _ => panic!("number is not in [0, 1, 2, 3]"),
+        };
 
-    // let mut new_image = Vec::new();
+        image.copy_from(&img, x, y).unwrap();
 
-    // for (index, row) in rows1.into_iter().enumerate() {
-    //     let mut new_row = Vec::new();
-    //     for rgb in row {
-    //         new_row.extend_from_slice(rgb);
-    //     }
+        let mut bytes = Vec::new();
 
-    //     for rgb in rows3[index] {
-    //         new_row.extend_from_slice(rgb);
-    //     }
+        DynamicImage::ImageRgba8(image.clone())
+            .write_to(&mut bytes, ImageFormat::Jpeg)
+            .unwrap();
 
-    //     new_image.append(&mut new_row);
-    // }
+        cache = Some(image);
 
-    // for (index, row) in rows2.into_iter().enumerate() {
-    //     let mut new_row = Vec::new();
-    //     for rgb in row {
-    //         new_row.extend_from_slice(rgb);
-    //     }
-
-    //     for rgb in rows4[index] {
-    //         new_row.extend_from_slice(rgb);
-    //     }
-
-    //     new_image.append(&mut new_row);
-    // }
-
-    // let new_image: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_vec(
-    //     dimensions2.0 + dimensions4.0,
-    //     dimensions1.1 + dimensions3.1,
-    //     new_image,
-    // )
-    // .unwrap();
-    // let new_image = DynamicImage::ImageRgb8(new_image);
-
-    // let mut bytes = Vec::new();
-    // new_image.write_to(&mut bytes, ImageFormat::Jpeg).unwrap();
-
-    // sender.send(bytes).unwrap();
+        sender.send(bytes).unwrap();
+    }
 }
 
 fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
@@ -131,7 +92,15 @@ fn main() -> std::io::Result<()> {
         let (sender, receiver) = mpsc::channel();
         let (sender1, receiver1) = mpsc::channel();
 
-        let mut camera = onvif::Camera::connect(
+        let mut camera1 = onvif::Camera::connect(
+            "http://192.168.1.88:2000/onvif/device_service".to_string(),
+            "admin".to_string(),
+            "admin1234".to_string(),
+        )
+        .await
+        .unwrap();
+
+        let mut camera2 = onvif::Camera::connect(
             "http://192.168.1.88:2000/onvif/device_service".to_string(),
             "admin".to_string(),
             "admin1234".to_string(),
@@ -153,7 +122,9 @@ fn main() -> std::io::Result<()> {
 
         println!("start camera");
 
-        camera.start(0, sender1);
+        camera1.start(1, sender1.clone());
+
+        camera2.start(0, sender1.clone());
 
         thread::sleep(Duration::from_secs(60));
 
@@ -193,7 +164,8 @@ fn main() -> std::io::Result<()> {
 
         println!("stop camera");
 
-        camera.stop();
+        camera1.stop();
+        camera2.stop();
     });
 
     Ok(())
