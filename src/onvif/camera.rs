@@ -64,41 +64,35 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub async fn connect(xaddr: String, username: String, password: String) -> Result<Self, Error> {
+    pub async fn start(xaddr: String, username: String, password: String) -> Self {
         let wsse_client = Client {
             header: UsernameToken::new(username, password),
         };
 
         let devicemgmt = Devicemgmt::new(&xaddr, &wsse_client);
 
-        let capabilities = devicemgmt
-            .get_capabilities()
-            .await
-            .map_err(|_| Error::UnexpectedError("Unexpected err"))?;
+        let capabilities = devicemgmt.get_capabilities().await.unwrap();
 
-        let media_xaddr = capabilities
-            .get("media")
-            .ok_or(Error::UnexpectedError("Media xaddr is missing"))?;
+        let media_xaddr = capabilities.get("media").unwrap();
 
         let media = Media::new(&media_xaddr, &wsse_client);
 
-        let profiles = media
-            .get_profiles()
-            .await
-            .map_err(|_| Error::UnexpectedError("Unexpected err"))?;
+        let profiles = media.get_profiles().await.unwrap();
 
         let uri = media
             .get_stream_url(&profiles[1].token) // TODO: Remove this hardcoded index
             .await
-            .map_err(|_| Error::UnexpectedError("Unexpected err"))?;
+            .unwrap();
 
         let rtsp = RTSPClient::connect(uri).await.unwrap();
 
-        Ok(Self {
+        rtsp.describe().unwrap();
+
+        Self {
             rtsp,
             thread: None,
             session: String::new(), // TODO: Стремно
-        })
+        }
     }
 
     pub fn start(&mut self, number: usize, sender: mpsc::Sender<(usize, Vec<u8>)>) {
@@ -128,7 +122,7 @@ impl Camera {
         self.rtsp.play(&self.session).unwrap();
     }
 
-    pub fn stop(&mut self) {
-        self.rtsp.teardown(&self.session).unwrap();
-    }
+    // pub fn stop(&mut self) {
+    //     self.rtsp.teardown(&self.session).unwrap();
+    // }
 }

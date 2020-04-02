@@ -1,7 +1,6 @@
-// mod onvif;
-// mod rtsp;
-// mod web;
-// mod xml;
+mod onvif;
+mod rtsp;
+mod xml;
 
 // use std::net::{TcpListener, TcpStream};
 // use std::sync::{Arc, Mutex};
