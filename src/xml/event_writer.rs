@@ -19,8 +19,8 @@ impl<'a> EventWriter {
         EventBuilder::new(&mut self.0).name(name)
     }
 
-    pub fn end_event(&'a mut self) -> Result<()> {
-        EventBuilder::new(&mut self.0).end()
+    pub fn end_event(&'a mut self) {
+        EventBuilder::new(&mut self.0).end();
     }
 
     pub fn into_string(self) -> String {

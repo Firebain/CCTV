@@ -1,5 +1,5 @@
-mod onvif;
-mod rtsp;
+// mod onvif;
+// mod rtsp;
 mod xml;
 
 // use std::net::{TcpListener, TcpStream};
@@ -195,111 +195,113 @@ mod xml;
 // }
 
 // use actix::prelude::*;
-use futures::stream::{Stream, StreamExt};
-use std::pin::Pin;
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll, Waker};
-use std::thread;
-use std::time::Duration;
-// use tokio::stream::Stream;
+// use futures::stream::{Stream, StreamExt};
+// use std::pin::Pin;
+// use std::sync::{Arc, Mutex};
+// use std::task::{Context, Poll, Waker};
+// use std::thread;
+// use std::time::Duration;
+// // use tokio::stream::Stream;
 
-struct NumberTicker {
-    name: &'static str,
-    shared_state: Arc<Mutex<SharedState<u64>>>,
-}
+// struct NumberTicker {
+//     name: &'static str,
+//     shared_state: Arc<Mutex<SharedState<u64>>>,
+// }
 
-struct SharedState<T> {
-    last_number: ShowOnce<T>,
-    waker: Option<Waker>,
-}
+// struct SharedState<T> {
+//     last_number: ShowOnce<T>,
+//     waker: Option<Waker>,
+// }
 
-struct ShowOnce<T> {
-    showed: bool,
-    value: T,
-}
+// struct ShowOnce<T> {
+//     showed: bool,
+//     value: T,
+// }
 
-impl<T> ShowOnce<T> {
-    fn new(value: T) -> Self {
-        Self {
-            showed: false,
-            value,
-        }
-    }
-}
+// impl<T> ShowOnce<T> {
+//     fn new(value: T) -> Self {
+//         Self {
+//             showed: false,
+//             value,
+//         }
+//     }
+// }
 
-impl NumberTicker {
-    pub fn new(name: &'static str) -> Self {
-        let shared_state = Arc::new(Mutex::new(SharedState {
-            last_number: ShowOnce::new(0),
-            waker: None,
-        }));
+// impl NumberTicker {
+//     pub fn new(name: &'static str) -> Self {
+//         let shared_state = Arc::new(Mutex::new(SharedState {
+//             last_number: ShowOnce::new(0),
+//             waker: None,
+//         }));
 
-        let thread_shared_state = shared_state.clone();
-        thread::spawn(|| Self::main_loop(thread_shared_state));
+//         let thread_shared_state = shared_state.clone();
+//         thread::spawn(|| Self::main_loop(thread_shared_state));
 
-        Self { name, shared_state }
-    }
+//         Self { name, shared_state }
+//     }
 
-    fn main_loop(thread_shared_state: Arc<Mutex<SharedState<u64>>>) {
-        loop {
-            thread::sleep(Duration::from_secs(1));
+//     fn main_loop(thread_shared_state: Arc<Mutex<SharedState<u64>>>) {
+//         loop {
+//             thread::sleep(Duration::from_secs(1));
 
-            let mut shared_state = thread_shared_state.lock().unwrap();
+//             let mut shared_state = thread_shared_state.lock().unwrap();
 
-            shared_state.last_number.value += 1;
-            shared_state.last_number.showed = false;
+//             shared_state.last_number.value += 1;
+//             shared_state.last_number.showed = false;
 
-            if let Some(waker) = shared_state.waker.take() {
-                waker.wake();
-            }
-        }
-    }
-}
+//             if let Some(waker) = shared_state.waker.take() {
+//                 waker.wake();
+//             }
+//         }
+//     }
+// }
 
-impl Stream for NumberTicker {
-    type Item = String;
+// impl Stream for NumberTicker {
+//     type Item = String;
 
-    fn poll_next(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut shared_state = self.shared_state.lock().unwrap();
+//     fn poll_next(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//         let mut shared_state = self.shared_state.lock().unwrap();
 
-        if shared_state.last_number.showed {
-            shared_state.waker = Some(ctx.waker().clone());
-            Poll::Pending
-        } else {
-            shared_state.last_number.showed = true;
-            Poll::Ready(Some(format!(
-                "{}: {}",
-                self.name, shared_state.last_number.value
-            )))
-        }
-    }
-}
+//         if shared_state.last_number.showed {
+//             shared_state.waker = Some(ctx.waker().clone());
+//             Poll::Pending
+//         } else {
+//             shared_state.last_number.showed = true;
+//             Poll::Ready(Some(format!(
+//                 "{}: {}",
+//                 self.name, shared_state.last_number.value
+//             )))
+//         }
+//     }
+// }
 
-#[tokio::main]
-async fn main() {
-    let mut first_ticker = NumberTicker::new("First ticker").map(|val| (0, val));
-    let mut second_ticker = NumberTicker::new("Second ticker").map(|val| (1, val));
-    let mut third_ticker = NumberTicker::new("Third ticker").map(|val| (2, val));
+// #[tokio::main]
+// async fn main() {
+//     let mut first_ticker = NumberTicker::new("First ticker").map(|val| (0, val));
+//     let mut second_ticker = NumberTicker::new("Second ticker").map(|val| (1, val));
+//     let mut third_ticker = NumberTicker::new("Third ticker").map(|val| (2, val));
 
-    let three = tokio::join!(
-        first_ticker.next(),
-        second_ticker.next(),
-        third_ticker.next()
-    );
-    //
-    // let mut number_ticker = number_ticker.merge(third_ticker);
+//     let three = tokio::join!(
+//         first_ticker.next(),
+//         second_ticker.next(),
+//         third_ticker.next()
+//     );
+//     //
+//     // let mut number_ticker = number_ticker.merge(third_ticker);
 
-    println!("{:?}", three);
-    // let mut stream = Connect(-2, None);
+//     println!("{:?}", three);
+//     // let mut stream = Connect(-2, None);
 
-    // stream.next().await;
-    // stream.next().await;
-    // stream.next().await;
-    // stream.next().await;
-    // stream.next().await;
-    // let addr = MyActor.start();
-    // addr.send(Connect(-2, None)).await.unwrap();
-    // addr.send(connection).await.unwrap();
+//     // stream.next().await;
+//     // stream.next().await;
+//     // stream.next().await;
+//     // stream.next().await;
+//     // stream.next().await;
+//     // let addr = MyActor.start();
+//     // addr.send(Connect(-2, None)).await.unwrap();
+//     // addr.send(connection).await.unwrap();
 
-    // println!("111");
-}
+//     // println!("111");
+// }
+
+fn main() {}

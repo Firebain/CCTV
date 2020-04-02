@@ -1,5 +1,5 @@
 use std::io::Write;
-use xml::writer::{EventWriter, Result, XmlEvent};
+use xml::writer::{EventWriter, XmlEvent};
 
 pub struct EventBuilder<'a, W: Write> {
     writer: &'a mut EventWriter<W>,
@@ -46,13 +46,13 @@ impl<'a, W: Write> EventBuilder<'a, W> {
         self
     }
 
-    pub fn end(mut self) -> Result<()> {
+    pub fn end(mut self) {
         self.end = true;
 
-        self.write()
+        self.write();
     }
 
-    pub fn write(self) -> Result<()> {
+    pub fn write(self) {
         if let Some(name) = self.name {
             let element = XmlEvent::start_element(name);
 
@@ -66,17 +66,15 @@ impl<'a, W: Write> EventBuilder<'a, W> {
                 None => element,
             };
 
-            self.writer.write(element)?;
+            self.writer.write(element).unwrap();
 
             if let Some(content) = self.content {
-                self.writer.write(XmlEvent::characters(content))?;
+                self.writer.write(XmlEvent::characters(content)).unwrap();
             }
         }
 
         if self.end {
-            self.writer.write(XmlEvent::end_element())?;
+            self.writer.write(XmlEvent::end_element()).unwrap();
         }
-
-        Ok(())
     }
 }
