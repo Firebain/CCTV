@@ -1,7 +1,6 @@
 use base64::encode;
 use chrono::prelude::*;
 use rand::prelude::*;
-use xml::writer::Result;
 
 use super::HeaderBuilder;
 use crate::xml::EventWriter;
@@ -39,10 +38,10 @@ impl UsernameToken {
 }
 
 impl HeaderBuilder for UsernameToken {
-    fn build_header(&self, writer: &mut EventWriter) -> Result<()> {
+    fn build_header(&self, writer: &mut EventWriter) {
         let (password, nonce, date) = self.compute_wsse_fields();
 
-        writer.new_event("s:Header").write()?;
+        writer.new_event("s:Header").write();
 
         writer
             .new_event("wsse:Security")
@@ -50,36 +49,34 @@ impl HeaderBuilder for UsernameToken {
                 "wsse",
                 "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd",
             )
-            .write()?;
+            .write();
 
-        writer.new_event("wsse:UsernameToken").write()?;
+        writer.new_event("wsse:UsernameToken").write();
 
         writer
             .new_event("wsse:Username")
             .content(&self.username)
-            .end()?;
+            .end();
 
         writer.new_event("wsse:Password")
             .attr("Type", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest")
             .content(&password)
-            .end()?;
+            .end();
 
         writer.new_event("wsse:Nonce")
             .attr("EncodingType", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary")
             .content(&nonce)
-            .end()?;
+            .end();
 
         writer.new_event("wsu:Created")
             .ns("wsu", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd")
             .content(&date)
-            .end()?;
+            .end();
 
-        writer.end_event()?; // UsernameToken
+        writer.end_event(); // UsernameToken
 
-        writer.end_event()?; // Security
+        writer.end_event(); // Security
 
-        writer.end_event()?; // Header
-
-        Ok(())
+        writer.end_event(); // Header
     }
 }

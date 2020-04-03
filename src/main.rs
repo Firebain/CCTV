@@ -1,5 +1,6 @@
 // mod onvif;
 // mod rtsp;
+mod soap;
 mod xml;
 
 // use std::net::{TcpListener, TcpStream};
@@ -304,4 +305,19 @@ mod xml;
 //     // println!("111");
 // }
 
-fn main() {}
+use soap::headers::UsernameToken;
+use soap::Client;
+
+fn main() {
+    let client = Client {
+        header: UsernameToken::new("123".to_string(), "321".to_string()),
+    };
+
+    let message = client.build(|writer| {
+        writer.new_event("Test").write();
+        writer.new_event("SecondTest").end();
+        writer.end_event();
+    });
+
+    println!("{}", message);
+}

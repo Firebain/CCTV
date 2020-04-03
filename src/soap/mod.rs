@@ -3,5 +3,5 @@ mod envelope;
 
 pub mod headers;
 
-pub use envelope::Envelope;
 pub use client::Client;
+pub use envelope::Envelope;
