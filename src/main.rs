@@ -1,5 +1,6 @@
 // mod onvif;
 // mod rtsp;
+mod onvif;
 mod soap;
 mod xml;
 
@@ -305,19 +306,8 @@ mod xml;
 //     // println!("111");
 // }
 
-use soap::headers::UsernameToken;
-use soap::Client;
+use onvif::discovery;
 
 fn main() {
-    let client = Client {
-        header: UsernameToken::new("123".to_string(), "321".to_string()),
-    };
-
-    let message = client.build(|writer| {
-        writer.new_event("Test").write();
-        writer.new_event("SecondTest").end();
-        writer.end_event();
-    });
-
-    println!("{}", message);
+    println!("{:?}", discovery());
 }
