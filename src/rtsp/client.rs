@@ -1,12 +1,8 @@
-use std::error;
-use std::fmt;
 use std::io::prelude::*;
-use std::io::Error as IoError;
-use std::string::FromUtf8Error;
 
 use std::collections::HashMap;
 use std::net::TcpStream;
-use url::{ParseError, Url};
+use url::Url;
 
 const REQUIRED_METHODS: [&str; 5] = ["OPTIONS", "DESCRIBE", "SETUP", "PLAY", "TEARDOWN"];
 
@@ -17,152 +13,109 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn connect(url: String) -> Result<Self, RTSPClientError> {
-        let parsed_url = Url::parse(&url)?;
-        if parsed_url.scheme() != "rtsp" {
-            return Err(RTSPClientError::WrongUrl("url sheme is not rtsp"));
-        }
+    pub fn connect(url: String) -> Self {
+        let parsed_url = Url::parse(&url).unwrap();
 
-        let addrs = parsed_url.socket_addrs(|| None)?;
+        let addrs = parsed_url.socket_addrs(|| None).unwrap();
 
         let mut client = Self {
-            connection: TcpStream::connect(&*addrs)?,
+            connection: TcpStream::connect(&*addrs).unwrap(),
             url,
             cseq: 1,
         };
 
-        let methods = client.options()?;
+        let methods = client.options();
         let contains_required_methods = REQUIRED_METHODS
             .iter()
             .all(|item| methods.contains(&item.to_string()));
 
         if contains_required_methods {
-            Ok(client)
+            client
         } else {
-            Err(RTSPClientError::UnexpectedError(
-                "RTSP server doesn't contains required methods",
-            ))
+            panic!("RTSP server doesn't contains required methods")
         }
     }
 
-    pub fn describe(&mut self) -> Result<(), RTSPClientError> {
+    pub fn describe(&mut self) {
         let mut headers = self.default_headers("DESCRIBE");
         headers.push("Accept: application/sdp".to_string());
 
-        self.write(headers)?;
+        self.write(headers);
 
-        self.recv()?;
-
-        Ok(())
+        self.recv();
     }
 
-    pub fn setup(
-        &mut self,
-        main_socket_port: u16,
-        second_socket_port: u16,
-    ) -> Result<String, RTSPClientError> {
+    pub fn setup(&mut self, main_socket_port: u16, second_socket_port: u16) -> String {
         let mut headers = self.default_headers("SETUP");
         headers.push(format!(
             "Transport: RTP/AVP;unicast;client_port={}-{}",
             main_socket_port, second_socket_port
         ));
 
-        self.write(headers)?;
+        self.write(headers);
 
-        let (mut headers, _) = self.recv()?;
-        let session = headers.remove("Session");
-
-        match session {
-            Some(session) => Ok(session),
-            None => Err(RTSPClientError::UnexpectedError(
-                "SETUP response doesn't contains Session header",
-            )),
-        }
+        let (mut headers, _) = self.recv();
+        headers.remove("Session").unwrap()
     }
 
-    pub fn play(&mut self, session: &str) -> Result<(), RTSPClientError> {
+    pub fn play(&mut self, session: &str) {
         let mut headers = self.default_headers("PLAY");
         headers.push(format!("Session: {}", session));
         headers.push("Range: npt=0.000-".to_string());
 
-        self.write(headers)?;
+        self.write(headers);
 
-        self.recv()?;
-
-        Ok(())
+        self.recv();
     }
 
-    pub fn teardown(&mut self, session: &str) -> Result<(), RTSPClientError> {
+    pub fn teardown(&mut self, session: &str) {
         let mut headers = self.default_headers("TEARDOWN");
         headers.push(format!("Session: {}", session));
 
-        self.write(headers)?;
+        self.write(headers);
 
-        self.recv()?;
-
-        Ok(())
+        self.recv();
     }
 
-    pub fn options(&mut self) -> Result<Vec<String>, RTSPClientError> {
+    pub fn options(&mut self) -> Vec<String> {
         let options = self.default_headers("OPTIONS");
 
-        self.write(options)?;
+        self.write(options);
 
-        let (headers, _) = self.recv()?;
-        let public_methods = headers.get("Public");
+        let (headers, _) = self.recv();
+        let public_methods = headers.get("Public").unwrap();
 
-        match public_methods {
-            Some(methods) => {
-                let methods = methods
-                    .split(',')
-                    .map(|item| item.trim().to_string())
-                    .collect();
-
-                Ok(methods)
-            }
-            None => Err(RTSPClientError::UnexpectedError(
-                "OPTIONS response doesn't contains Public methods",
-            )),
-        }
+        public_methods
+            .split(',')
+            .map(|item| item.trim().to_string())
+            .collect()
     }
 
-    fn write(&mut self, headers: Vec<String>) -> Result<(), RTSPClientError> {
+    fn write(&mut self, headers: Vec<String>) {
         let headers = headers.join("\r\n") + "\r\n\r\n";
 
         let headers = headers.as_bytes();
 
-        self.connection.write_all(headers)?;
-
-        Ok(())
+        self.connection.write_all(headers).unwrap();
     }
 
-    fn recv(&mut self) -> Result<(HashMap<String, String>, String), RTSPClientError> {
+    fn recv(&mut self) -> (HashMap<String, String>, String) {
         let mut buf = [0; 65_535];
 
-        let amt = self.connection.read(&mut buf)?;
-        let res = String::from_utf8(Vec::from(&buf[..amt]))?;
+        let amt = self.connection.read(&mut buf).unwrap();
+        let res = String::from_utf8(Vec::from(&buf[..amt])).unwrap();
 
         let mut data = res.split("\r\n\r\n");
-        let headers = data
-            .nth(0)
-            .ok_or(RTSPClientError::UnexpectedError("Headers is missing"))?;
-        let body = data
-            .nth(0)
-            .ok_or(RTSPClientError::UnexpectedError("Body is missing"))?
-            .to_string();
+        let headers = data.nth(0).unwrap();
+        let body = data.nth(0).unwrap().to_string();
 
         let mut headers = headers.split("\r\n");
-        let status = headers
-            .nth(0)
-            .ok_or(RTSPClientError::UnexpectedError("Headers is missing"))?;
+        let status = headers.nth(0).unwrap();
 
-        let status_code = status
-            .split(' ')
-            .nth(1)
-            .ok_or(RTSPClientError::UnexpectedError("Status code is missing"))?;
+        let status_code = status.split(' ').nth(1).unwrap();
 
         if status_code != "200" {
-            return Err(RTSPClientError::UnexpectedError("Wrong status code"));
+            panic!("Wrong status code");
         }
 
         let headers = headers.map(|el| {
@@ -172,28 +125,16 @@ impl Client {
         });
 
         let headers: Option<HashMap<String, String>> = headers.collect();
-        let headers = headers.ok_or(RTSPClientError::UnexpectedError(
-            "Error while parsing headers",
-        ))?;
+        let headers = headers.unwrap();
 
-        let cseq = headers
-            .get("CSeq")
-            .ok_or(RTSPClientError::UnexpectedError(
-                "RTSP responce doesn't contains CSeq",
-            ))?
-            .parse::<u32>()
-            .map_err(|_| {
-                RTSPClientError::UnexpectedError("Error while parsing RTSP responce CSeq")
-            })?;
+        let cseq = headers.get("CSeq").unwrap().parse::<u32>().unwrap();
 
         if cseq == self.cseq {
             self.cseq += 1;
 
-            Ok((headers, body))
+            (headers, body)
         } else {
-            Err(RTSPClientError::UnexpectedError(
-                "Responce CSeq is different",
-            ))
+            panic!("Responce CSeq is different");
         }
     }
 
@@ -205,42 +146,3 @@ impl Client {
         ]
     }
 }
-
-#[derive(Debug)]
-pub enum RTSPClientError {
-    ParsingUrl(ParseError),
-    WrongUrl(&'static str),
-    ConnectionError(IoError),
-    UnexpectedError(&'static str),
-}
-
-impl From<ParseError> for RTSPClientError {
-    fn from(err: ParseError) -> Self {
-        Self::ParsingUrl(err)
-    }
-}
-
-impl From<IoError> for RTSPClientError {
-    fn from(err: IoError) -> Self {
-        Self::ConnectionError(err)
-    }
-}
-
-impl From<FromUtf8Error> for RTSPClientError {
-    fn from(_: FromUtf8Error) -> Self {
-        Self::UnexpectedError("None utf 8 string is received")
-    }
-}
-
-impl fmt::Display for RTSPClientError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::ParsingUrl(err) => write!(f, "Error while parsing url: {}", err),
-            Self::ConnectionError(err) => write!(f, "Connection error: {}", err),
-            Self::WrongUrl(err) => write!(f, "Url is wrong: {}", err),
-            Self::UnexpectedError(err) => write!(f, "UnexpectedError: {}", err),
-        }
-    }
-}
-
-impl error::Error for RTSPClientError {}

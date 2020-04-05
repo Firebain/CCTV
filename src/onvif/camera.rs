@@ -20,8 +20,8 @@ impl Camera {
         Devicemgmt::new(&self.xaddr, &self.wsse_client)
     }
 
-    pub fn media(&self) -> Media {
-        let capabilities = self.devicemgmt().get_capabilities();
+    pub async fn media(&self) -> Media<'_> {
+        let capabilities = self.devicemgmt().get_capabilities().await;
         let media_xaddr = capabilities.get("media").unwrap();
 
         Media::new(media_xaddr.clone(), &self.wsse_client)

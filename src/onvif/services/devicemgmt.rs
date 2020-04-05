@@ -39,7 +39,7 @@ impl<'a> Devicemgmt<'a> {
         Self { xaddr, wsse_client }
     }
 
-    pub fn get_capabilities(&self) -> HashMap<String, String> {
+    pub async fn get_capabilities(&self) -> HashMap<String, String> {
         let message = self.wsse_client.build(|writer| {
             writer
                 .new_event("ns0:GetCapabilities")
@@ -47,12 +47,14 @@ impl<'a> Devicemgmt<'a> {
                 .end();
         });
 
-        let response = reqwest::blocking::Client::new()
+        let response = reqwest::Client::new()
             .post(self.xaddr)
             .body(message)
             .send()
+            .await
             .unwrap()
             .text()
+            .await
             .unwrap();
 
         let data: Envelope<GetCapabilitiesBody> = serde_xml_rs::from_str(&response).unwrap();

@@ -1,4 +1,5 @@
 mod client;
 pub mod rtp;
+mod stream;
 
-pub use client::Client;
+pub use stream::Stream;

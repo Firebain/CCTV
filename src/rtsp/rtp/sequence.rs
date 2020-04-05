@@ -15,6 +15,7 @@ pub struct RTPSequence {
     buffer: Vec<u8>,
     header: Option<Vec<u8>>,
     last_package_number: Option<u16>,
+    lost_packet: bool,
 }
 
 impl RTPSequence {
@@ -23,6 +24,7 @@ impl RTPSequence {
             buffer: Vec::new(),
             header: None,
             last_package_number: None,
+            lost_packet: false,
         }
     }
 
@@ -31,7 +33,7 @@ impl RTPSequence {
 
         if let Some(number) = self.last_package_number {
             if number >= rtp_packet.sequence_number() {
-                return Err(RTPSequenceError::PackageLost);
+                self.lost_packet = true;
             }
         }
 
@@ -49,16 +51,24 @@ impl RTPSequence {
         self.buffer.extend(body);
 
         if rtp_packet.marked() {
-            match &self.header {
-                Some(header) => {
-                    let mut data = Vec::new();
+            if !self.lost_packet {
+                match &self.header {
+                    Some(header) => {
+                        let mut data = Vec::new();
 
-                    data.extend(header);
-                    data.extend(&self.buffer);
+                        data.extend(header);
+                        data.extend(&self.buffer);
 
-                    Ok(RTPSequenceStatus::LastPacket(data))
+                        self.clean();
+                        Ok(RTPSequenceStatus::LastPacket(data))
+                    }
+                    None => Err(RTPSequenceError::HeaderMissing),
                 }
-                None => Err(RTPSequenceError::HeaderMissing),
+            } else {
+                self.lost_packet = false;
+                self.clean();
+
+                Err(RTPSequenceError::PackageLost)
             }
         } else {
             Ok(RTPSequenceStatus::Ok)
