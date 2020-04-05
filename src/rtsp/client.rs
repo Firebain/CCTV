@@ -27,7 +27,7 @@ impl Client {
         let methods = client.options();
         let contains_required_methods = REQUIRED_METHODS
             .iter()
-            .all(|item| methods.contains(&item.to_string()));
+            .all(|item| methods.contains(&(*item).to_string()));
 
         if contains_required_methods {
             client
@@ -68,14 +68,14 @@ impl Client {
         self.recv();
     }
 
-    pub fn teardown(&mut self, session: &str) {
-        let mut headers = self.default_headers("TEARDOWN");
-        headers.push(format!("Session: {}", session));
+    // pub fn teardown(&mut self, session: &str) {
+    //     let mut headers = self.default_headers("TEARDOWN");
+    //     headers.push(format!("Session: {}", session));
 
-        self.write(headers);
+    //     self.write(headers);
 
-        self.recv();
-    }
+    //     self.recv();
+    // }
 
     pub fn options(&mut self) -> Vec<String> {
         let options = self.default_headers("OPTIONS");
@@ -106,11 +106,11 @@ impl Client {
         let res = String::from_utf8(Vec::from(&buf[..amt])).unwrap();
 
         let mut data = res.split("\r\n\r\n");
-        let headers = data.nth(0).unwrap();
-        let body = data.nth(0).unwrap().to_string();
+        let headers = data.next().unwrap();
+        let body = data.next().unwrap().to_string();
 
         let mut headers = headers.split("\r\n");
-        let status = headers.nth(0).unwrap();
+        let status = headers.next().unwrap();
 
         let status_code = status.split(' ').nth(1).unwrap();
 
@@ -121,7 +121,7 @@ impl Client {
         let headers = headers.map(|el| {
             let mut split = el.split(": ");
 
-            Some((split.nth(0)?.to_string(), split.nth(0)?.to_string()))
+            Some((split.next()?.to_string(), split.next()?.to_string()))
         });
 
         let headers: Option<HashMap<String, String>> = headers.collect();

@@ -27,8 +27,8 @@ impl ShowOnce {
 }
 
 pub struct Stream {
-    rtsp: Client,
-    session: String,
+    // rtsp: Client,
+    // session: String,
     shared_state: Arc<Mutex<SharedState>>,
 }
 
@@ -56,15 +56,15 @@ impl Stream {
         rtsp.play(&session);
 
         Self {
-            rtsp,
-            session,
+            // rtsp,
+            // session,
             shared_state,
         }
     }
 
-    pub fn stop(mut self) {
-        self.rtsp.teardown(&self.session);
-    }
+    // pub fn stop(mut self) {
+    //     self.rtsp.teardown(&self.session);
+    // }
 
     fn main_loop(socket: UdpSocket, thread_shared_state: Arc<Mutex<SharedState>>) {
         let mut rtp_sequence = RTPSequence::new();

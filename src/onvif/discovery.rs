@@ -164,9 +164,5 @@ fn parse_responses(responses: Vec<String>) -> Vec<ProbeMatch> {
         .map(ProbeMatch::from)
         .collect::<HashSet<ProbeMatch>>();
 
-    let probe_matches = unique_probe_matches
-        .into_iter()
-        .collect::<Vec<ProbeMatch>>();
-
-    probe_matches
+    unique_probe_matches.into_iter().collect()
 }
