@@ -1,6 +1,7 @@
 // mod onvif;
 // mod rtsp;
 mod onvif;
+mod rtsp;
 mod soap;
 mod xml;
 
