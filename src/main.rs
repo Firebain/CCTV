@@ -306,8 +306,23 @@ mod xml;
 //     // println!("111");
 // }
 
-use onvif::discovery;
+use onvif::Camera;
+
+const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
 
 fn main() {
-    println!("{:?}", discovery());
+    let camera = Camera::new(
+        XADDR.to_string(),
+        "admin".to_string(),
+        "admin1234".to_string(),
+    );
+
+    let uri = camera
+        .media()
+        .get_profiles()
+        .get(1)
+        .unwrap()
+        .get_stream_url();
+
+    println!("uri: {}", uri);
 }
