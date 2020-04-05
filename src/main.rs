@@ -7,11 +7,14 @@ mod xml;
 
 // use std::net::{TcpListener, TcpStream};
 // use std::sync::{Arc, Mutex};
-// use std::thread;
+use std::thread;
+use std::time::Duration;
 // use std::time::Duration;
 // use tungstenite::server::accept;
 // use tungstenite::Message;
 // use tungstenite::WebSocket;
+
+use std::net::{SocketAddr, UdpSocket};
 
 // use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgb, Rgba};
 // use std::sync::mpsc;
@@ -308,6 +311,7 @@ mod xml;
 // }
 
 use onvif::Camera;
+use rtsp::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
 
 const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
 
@@ -325,5 +329,62 @@ fn main() {
         .unwrap()
         .get_stream_url();
 
-    println!("uri: {}", uri);
+    let mut rtsp = rtsp::Client::connect(uri).unwrap();
+
+    rtsp.describe().unwrap();
+
+    let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));
+    let main_socket = UdpSocket::bind(free_socket_addr).expect("Could not bind to udp socket");
+    let next_socket_addr =
+        SocketAddr::from(([0, 0, 0, 0], main_socket.local_addr().unwrap().port() + 1));
+    let second_socket = UdpSocket::bind(next_socket_addr).expect("Could not bind to udp socket");
+
+    let cloned_main_socket = main_socket.try_clone().unwrap();
+    println!("video handler spawn");
+    thread::spawn(move || video_handler(cloned_main_socket));
+
+    let session = rtsp
+        .setup(
+            main_socket.local_addr().unwrap().port(),
+            second_socket.local_addr().unwrap().port(),
+        )
+        .unwrap();
+
+    rtsp.play(&session).unwrap();
+
+    thread::sleep(Duration::from_secs(5));
+
+    rtsp.teardown(&session).unwrap();
+
+    println!("sleep");
+
+    thread::sleep(Duration::from_secs(1));
+}
+
+fn video_handler(socket: UdpSocket) {
+    println!("video handler start");
+    let mut rtp_sequence = RTPSequence::new();
+
+    loop {
+        let mut buf = [0; 65_535];
+
+        let amt = socket.recv(&mut buf).unwrap();
+
+        let buf = &buf[..amt];
+
+        match rtp_sequence.push(buf) {
+            Ok(status) => {
+                if let RTPSequenceStatus::LastPacket(_data) = status {
+                    println!("New image");
+
+                    rtp_sequence.clean();
+                }
+            }
+            Err(err) => match err {
+                RTPSequenceError::PackageLost => rtp_sequence.clean(),
+                RTPSequenceError::HeaderMissing => rtp_sequence.clean(),
+                _ => panic!("{}", err),
+            },
+        }
+    }
 }

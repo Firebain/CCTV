@@ -10,14 +10,14 @@ use url::{ParseError, Url};
 
 const REQUIRED_METHODS: [&str; 5] = ["OPTIONS", "DESCRIBE", "SETUP", "PLAY", "TEARDOWN"];
 
-pub struct RTSPClient {
+pub struct Client {
     connection: TcpStream,
     url: String,
     cseq: u32,
 }
 
-impl RTSPClient {
-    pub async fn connect(url: String) -> Result<Self, RTSPClientError> {
+impl Client {
+    pub fn connect(url: String) -> Result<Self, RTSPClientError> {
         let parsed_url = Url::parse(&url)?;
         if parsed_url.scheme() != "rtsp" {
             return Err(RTSPClientError::WrongUrl("url sheme is not rtsp"));
@@ -25,13 +25,13 @@ impl RTSPClient {
 
         let addrs = parsed_url.socket_addrs(|| None)?;
 
-        let mut client = RTSPClient {
+        let mut client = Self {
             connection: TcpStream::connect(&*addrs)?,
             url,
             cseq: 1,
         };
 
-        let methods = client.options().await?;
+        let methods = client.options()?;
         let contains_required_methods = REQUIRED_METHODS
             .iter()
             .all(|item| methods.contains(&item.to_string()));
@@ -103,7 +103,7 @@ impl RTSPClient {
         Ok(())
     }
 
-    pub async fn options(&mut self) -> Result<Vec<String>, RTSPClientError> {
+    pub fn options(&mut self) -> Result<Vec<String>, RTSPClientError> {
         let options = self.default_headers("OPTIONS");
 
         self.write(options)?;

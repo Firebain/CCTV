@@ -1,2 +1,4 @@
 mod client;
-mod rtp;
+pub mod rtp;
+
+pub use client::Client;
