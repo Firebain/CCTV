@@ -45,7 +45,7 @@ impl RTPSequence {
 
         self.last_package_number = Some(rtp_packet.sequence_number());
 
-        let (header, body) = jpeg_payload::parse(rtp_packet.payload(), self.header.is_some());
+        let (header, body) = jpeg_payload::parse(rtp_packet.payload(), self.header.is_some()); // TODO: Возможно надо еще синхронизировать с fragment_offset
 
         if self.header.is_none() {
             match header {

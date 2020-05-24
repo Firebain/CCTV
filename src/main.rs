@@ -14,82 +14,81 @@ use tungstenite::server::accept;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 
-use std::fs::File;
-use std::io::prelude::*;
-
 use onvif::OnvifDevice;
 
 const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
 
-// use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgb, Rgba};
+use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgba};
 use std::sync::mpsc;
 
-// fn process_image(sender: mpsc::Sender<Vec<u8>>, receiver: mpsc::Receiver<(usize, Vec<u8>)>) {
-//     let mut cache: Option<ImageBuffer<Rgba<u8>, Vec<u8>>> = None;
+fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
+    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
 
-//     loop {
-//         let (number, image) = receiver.recv().unwrap();
+    for stream in server.incoming() {
+        println!("new user!");
 
-//         let img = image::load_from_memory(&image).unwrap();
+        let mut users = users.lock().unwrap();
 
-//         let dimensions = img.dimensions();
+        users.push(accept(stream.unwrap()).unwrap());
+    }
+}
 
-//         let mut image = cache.unwrap_or(ImageBuffer::<Rgba<u8>, Vec<u8>>::new(
-//             dimensions.0 * 2,
-//             dimensions.1 * 2,
-//         ));
+fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Receiver<Vec<u8>>) {
+    println!("sending image started");
+    loop {
+        let image = match rx.recv() {
+            Ok(image) => image,
+            Err(err) => panic!(format!("{}", err)),
+        };
+        let mut users = users.lock().unwrap();
 
-//         let (x, y) = match number {
-//             0 => (0, 0),
-//             1 => (dimensions.0, 0),
-//             2 => (0, dimensions.1),
-//             3 => (dimensions.0, dimensions.1),
-//             _ => panic!("number is not in [0, 1, 2, 3]"),
-//         };
+        for user in (*users).iter_mut() {
+            user.write_message(Message::Binary(image.clone())).unwrap();
+        }
+    }
+}
 
-//         image.copy_from(&img, x, y).unwrap();
+fn concat_streams(
+    stream1: &mut RtspStream,
+    stream2: &mut RtspStream,
+    stream3: &mut RtspStream,
+    stream4: &mut RtspStream,
+) -> Vec<u8> {
+    let bytes1 = stream1.next();
+    let bytes2 = stream2.next();
+    let bytes3 = stream3.next();
+    let bytes4 = stream4.next();
 
-//         let mut bytes = Vec::new();
+    let img1 = image::load_from_memory(&bytes1).unwrap();
+    let img2 = image::load_from_memory(&bytes2).unwrap();
+    let img3 = image::load_from_memory(&bytes3).unwrap();
+    let img4 = image::load_from_memory(&bytes4).unwrap();
 
-//         DynamicImage::ImageRgba8(image.clone())
-//             .write_to(&mut bytes, ImageFormat::Jpeg)
-//             .unwrap();
+    let dimensions1 = img1.dimensions();
+    // let dimensions2 = img2.dimensions();
+    // let dimensions3 = img3.dimensions();
+    // let dimensions4 = img4.dimensions();
 
-//         cache = Some(image);
+    // TODO: Не очень быстрый и динамичный вариант
+    let mut image = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(dimensions1.0 * 2, dimensions1.1 * 2);
 
-//         sender.send(bytes).unwrap();
-//     }
-// }
+    image.copy_from(&img1, 0, 0).unwrap();
+    image.copy_from(&img2, dimensions1.0, 0).unwrap();
+    image.copy_from(&img3, 0, dimensions1.1).unwrap();
+    image
+        .copy_from(&img4, dimensions1.0, dimensions1.1)
+        .unwrap();
 
-// fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
-//     let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+    let mut bytes = Vec::new();
 
-//     for stream in server.incoming() {
-//         println!("new user!");
+    DynamicImage::ImageRgba8(image.clone())
+        .write_to(&mut bytes, ImageFormat::Jpeg)
+        .unwrap();
 
-//         let mut users = users.lock().unwrap();
+    bytes
+}
 
-//         users.push(accept(stream.unwrap()).unwrap());
-//     }
-// }
-
-// fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Receiver<Vec<u8>>) {
-//     println!("sending image started");
-//     loop {
-//         let image = match rx.recv() {
-//             Ok(image) => image,
-//             Err(err) => panic!(format!("{}", err)),
-//         };
-//         let mut users = users.lock().unwrap();
-
-//         for user in (*users).iter_mut() {
-//             user.write_message(Message::Binary(image.clone())).unwrap();
-//         }
-//     }
-// }
-
-#[tokio::main]
-async fn main() {
+fn main() {
     let camera = OnvifDevice::new(
         XADDR.to_string(),
         "admin".to_string(),
@@ -98,32 +97,23 @@ async fn main() {
 
     let uri = camera.media().get_profiles()[1].get_stream_url();
 
-    // let (sender, receiver) = mpsc::channel();
+    let (sender, receiver) = mpsc::channel();
 
-    // let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
-    // let users_1 = Arc::clone(&users);
-    // let users_2 = Arc::clone(&users);
+    let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
+    let users_1 = Arc::clone(&users);
+    let users_2 = Arc::clone(&users);
 
-    // thread::spawn(move || websocket_connections(users_1));
+    thread::spawn(move || websocket_connections(users_1));
 
-    // thread::spawn(move || websocket_sender(users_2, receiver));
+    thread::spawn(move || websocket_sender(users_2, receiver));
 
-    let mut stream = RtspStream::start(uri);
+    let mut stream1 = RtspStream::start(uri.clone());
+    let mut stream2 = RtspStream::start(uri.clone());
+    let mut stream3 = RtspStream::start(uri.clone());
+    let mut stream4 = RtspStream::start(uri.clone());
     loop {
-        let bytes = stream.next();
+        let bytes = concat_streams(&mut stream1, &mut stream2, &mut stream3, &mut stream4);
 
-        let mut file = File::create("foo.jpeg").unwrap();
-        file.write_all(&bytes).unwrap();
+        sender.send(bytes).unwrap();
     }
-
-    // println!("{:?}", stream.next().await.unwrap());
-    // println!("{:?}", stream.next().await.unwrap());
-
-    // thread::sleep(Duration::from_secs(5));
-
-    // stream.stop();
-
-    // println!("sleep");
-
-    // thread::sleep(Duration::from_secs(1));
 }
