@@ -51,7 +51,7 @@ impl<'a> Media<'a> {
         Self { xaddr, wsse_client }
     }
 
-    pub async fn get_profiles(&self) -> Vec<Profile<'_>> {
+    pub fn get_profiles(&self) -> Vec<Profile<'_>> {
         let message = self.wsse_client.build(|writer| {
             writer
                 .new_event("ns0:GetProfiles")
@@ -59,14 +59,12 @@ impl<'a> Media<'a> {
                 .end();
         });
 
-        let response = reqwest::Client::new()
+        let response = reqwest::blocking::Client::new()
             .post(&self.xaddr)
             .body(message)
             .send()
-            .await
             .unwrap()
             .text()
-            .await
             .unwrap();
 
         let data: Envelope<GetProfilesBody> = serde_xml_rs::from_str(&response).unwrap();
@@ -79,7 +77,7 @@ impl<'a> Media<'a> {
             .collect()
     }
 
-    pub async fn get_stream_url(&self, profile_token: &str) -> String {
+    pub fn get_stream_url(&self, profile_token: &str) -> String {
         let message = self.wsse_client.build(|writer| {
             writer
                 .new_event("ns0:GetStreamUri")
@@ -102,14 +100,12 @@ impl<'a> Media<'a> {
             writer.end_event(); // GetStreamUri
         });
 
-        let response = reqwest::Client::new()
+        let response = reqwest::blocking::Client::new()
             .post(&self.xaddr)
             .body(message)
             .send()
-            .await
             .unwrap()
             .text()
-            .await
             .unwrap();
 
         let data: Envelope<GetStreamBody> = serde_xml_rs::from_str(&response).unwrap();

@@ -2,8 +2,6 @@ use xml::writer::{EmitterConfig, EventWriter as DefaultEventWriter};
 
 use super::event_builder::EventBuilder;
 
-pub use xml::writer::Result;
-
 pub struct EventWriter(DefaultEventWriter<Vec<u8>>);
 
 impl<'a> EventWriter {

@@ -10,7 +10,7 @@ impl<'a> Profile<'a> {
         Self { token, media }
     }
 
-    pub async fn get_stream_url(&self) -> String {
-        self.media.get_stream_url(&self.token).await
+    pub fn get_stream_url(&self) -> String {
+        self.media.get_stream_url(&self.token)
     }
 }

@@ -15,7 +15,7 @@ use tungstenite::WebSocket;
 
 use futures::stream::StreamExt;
 
-use onvif::Camera;
+use onvif::OnvifDevice;
 use rtsp::Stream;
 
 const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
@@ -89,21 +89,13 @@ fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Rece
 
 #[tokio::main]
 async fn main() {
-    let camera = Camera::new(
+    let camera = OnvifDevice::new(
         XADDR.to_string(),
         "admin".to_string(),
         "admin1234".to_string(),
     );
 
-    let uri = camera
-        .media()
-        .await
-        .get_profiles()
-        .await
-        .get(1)
-        .unwrap()
-        .get_stream_url()
-        .await;
+    let uri = camera.media().get_profiles()[0].get_stream_url();
 
     let (sender, receiver) = mpsc::channel();
 
