@@ -68,14 +68,14 @@ impl RtspClient {
         self.recv();
     }
 
-    // pub fn teardown(&mut self, session: &str) {
-    //     let mut headers = self.default_headers("TEARDOWN");
-    //     headers.push(format!("Session: {}", session));
+    pub fn teardown(&mut self, session: &str) {
+        let mut headers = self.default_headers("TEARDOWN");
+        headers.push(format!("Session: {}", session));
 
-    //     self.write(headers);
+        self.write(headers);
 
-    //     self.recv();
-    // }
+        self.recv();
+    }
 
     pub fn options(&mut self) -> Vec<String> {
         let options = self.default_headers("OPTIONS");

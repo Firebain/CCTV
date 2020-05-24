@@ -5,6 +5,7 @@ mod rtsp;
 mod soap;
 mod xml;
 
+use rtsp::RtspStream;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -13,10 +14,7 @@ use tungstenite::server::accept;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 
-use futures::stream::StreamExt;
-
 use onvif::OnvifDevice;
-use rtsp::Stream;
 
 const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
 
@@ -60,32 +58,32 @@ use std::sync::mpsc;
 //     }
 // }
 
-fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
-    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+// fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
+//     let server = TcpListener::bind("127.0.0.1:9001").unwrap();
 
-    for stream in server.incoming() {
-        println!("new user!");
+//     for stream in server.incoming() {
+//         println!("new user!");
 
-        let mut users = users.lock().unwrap();
+//         let mut users = users.lock().unwrap();
 
-        users.push(accept(stream.unwrap()).unwrap());
-    }
-}
+//         users.push(accept(stream.unwrap()).unwrap());
+//     }
+// }
 
-fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Receiver<Vec<u8>>) {
-    println!("sending image started");
-    loop {
-        let image = match rx.recv() {
-            Ok(image) => image,
-            Err(err) => panic!(format!("{}", err)),
-        };
-        let mut users = users.lock().unwrap();
+// fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Receiver<Vec<u8>>) {
+//     println!("sending image started");
+//     loop {
+//         let image = match rx.recv() {
+//             Ok(image) => image,
+//             Err(err) => panic!(format!("{}", err)),
+//         };
+//         let mut users = users.lock().unwrap();
 
-        for user in (*users).iter_mut() {
-            user.write_message(Message::Binary(image.clone())).unwrap();
-        }
-    }
-}
+//         for user in (*users).iter_mut() {
+//             user.write_message(Message::Binary(image.clone())).unwrap();
+//         }
+//     }
+// }
 
 #[tokio::main]
 async fn main() {
@@ -97,21 +95,24 @@ async fn main() {
 
     let uri = camera.media().get_profiles()[0].get_stream_url();
 
-    let (sender, receiver) = mpsc::channel();
+    // let (sender, receiver) = mpsc::channel();
 
-    let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
-    let users_1 = Arc::clone(&users);
-    let users_2 = Arc::clone(&users);
+    // let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
+    // let users_1 = Arc::clone(&users);
+    // let users_2 = Arc::clone(&users);
 
-    thread::spawn(move || websocket_connections(users_1));
+    // thread::spawn(move || websocket_connections(users_1));
 
-    thread::spawn(move || websocket_sender(users_2, receiver));
+    // thread::spawn(move || websocket_sender(users_2, receiver));
 
-    let mut stream = Stream::start(uri);
+    let mut stream = RtspStream::start(uri);
+    let mut counter = 0;
     loop {
-        let frame = stream.next().await.unwrap();
+        stream.next();
 
-        sender.send(frame).unwrap();
+        println!("frame {} recived!", counter);
+
+        counter += 1;
     }
 
     // println!("{:?}", stream.next().await.unwrap());

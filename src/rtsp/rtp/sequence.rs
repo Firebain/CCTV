@@ -15,7 +15,6 @@ pub struct RTPSequence {
     buffer: Vec<u8>,
     header: Option<Vec<u8>>,
     last_package_number: Option<u16>,
-    lost_packet: bool,
 }
 
 impl RTPSequence {
@@ -24,16 +23,23 @@ impl RTPSequence {
             buffer: Vec::new(),
             header: None,
             last_package_number: None,
-            lost_packet: false,
         }
     }
 
     pub fn push(&mut self, buf: &[u8]) -> Result<RTPSequenceStatus, RTPSequenceError> {
         let rtp_packet = RTPPacket::try_from(buf)?;
 
-        if let Some(number) = self.last_package_number {
-            if number >= rtp_packet.sequence_number() {
-                self.lost_packet = true;
+        if let Some(last_package_number) = self.last_package_number {
+            let mut number = last_package_number + 1;
+
+            if number == 65535 {
+                number = 0;
+            }
+
+            if rtp_packet.sequence_number() != number {
+                self.clean();
+
+                return Err(RTPSequenceError::PackageLost);
             }
         }
 
@@ -44,31 +50,28 @@ impl RTPSequence {
         if self.header.is_none() {
             match header {
                 Some(_) => self.header = header,
-                None => return Err(RTPSequenceError::HeaderMissing),
+                None => {
+                    self.clean();
+
+                    return Err(RTPSequenceError::HeaderMissing);
+                }
             }
         }
 
         self.buffer.extend(body);
 
         if rtp_packet.marked() {
-            if !self.lost_packet {
-                match &self.header {
-                    Some(header) => {
-                        let mut data = Vec::new();
+            match &self.header {
+                Some(header) => {
+                    let mut data = Vec::new();
 
-                        data.extend(header);
-                        data.extend(&self.buffer);
+                    data.extend(header);
+                    data.extend(&self.buffer);
 
-                        self.clean();
-                        Ok(RTPSequenceStatus::LastPacket(data))
-                    }
-                    None => Err(RTPSequenceError::HeaderMissing),
+                    self.clean();
+                    Ok(RTPSequenceStatus::LastPacket(data))
                 }
-            } else {
-                self.lost_packet = false;
-                self.clean();
-
-                Err(RTPSequenceError::PackageLost)
+                None => Err(RTPSequenceError::HeaderMissing),
             }
         } else {
             Ok(RTPSequenceStatus::Ok)
@@ -76,6 +79,7 @@ impl RTPSequence {
     }
 
     pub fn clean(&mut self) {
+        self.last_package_number = None;
         self.buffer = Vec::new();
         self.header = None;
     }
