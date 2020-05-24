@@ -6,13 +6,13 @@ use url::Url;
 
 const REQUIRED_METHODS: [&str; 5] = ["OPTIONS", "DESCRIBE", "SETUP", "PLAY", "TEARDOWN"];
 
-pub struct Client {
+pub struct RtspClient {
     connection: TcpStream,
     url: String,
     cseq: u32,
 }
 
-impl Client {
+impl RtspClient {
     pub fn connect(url: String) -> Self {
         let parsed_url = Url::parse(&url).unwrap();
 

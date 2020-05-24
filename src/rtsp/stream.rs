@@ -1,4 +1,4 @@
-use super::client::Client;
+use super::client::RtspClient;
 use super::rtp::sequence::{RTPSequence, RTPSequenceStatus};
 use futures::stream::Stream as FuturesStream;
 use std::net::{SocketAddr, UdpSocket};
@@ -27,14 +27,14 @@ impl ShowOnce {
 }
 
 pub struct Stream {
-    // rtsp: Client,
+    // rtsp: RtspClient,
     // session: String,
     shared_state: Arc<Mutex<SharedState>>,
 }
 
 impl Stream {
     pub fn start(uri: String) -> Self {
-        let mut rtsp = Client::connect(uri);
+        let mut rtsp = RtspClient::connect(uri);
 
         rtsp.describe();
 

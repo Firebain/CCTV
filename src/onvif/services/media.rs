@@ -1,6 +1,4 @@
-use crate::soap::headers::UsernameToken;
-use crate::soap::Client;
-use crate::soap::Envelope;
+use crate::soap::{headers::UsernameToken, Envelope, SoapClient};
 
 use crate::onvif::Profile;
 
@@ -43,11 +41,11 @@ pub struct MediaUri {
 
 pub struct Media<'a> {
     xaddr: String,
-    wsse_client: &'a Client<UsernameToken>,
+    wsse_client: &'a SoapClient<UsernameToken>,
 }
 
 impl<'a> Media<'a> {
-    pub fn new(xaddr: String, wsse_client: &'a Client<UsernameToken>) -> Self {
+    pub fn new(xaddr: String, wsse_client: &'a SoapClient<UsernameToken>) -> Self {
         Self { xaddr, wsse_client }
     }
 

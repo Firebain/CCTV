@@ -3,5 +3,5 @@ mod envelope;
 
 pub mod headers;
 
-pub use client::Client;
+pub use client::SoapClient;
 pub use envelope::Envelope;

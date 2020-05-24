@@ -1,11 +1,11 @@
 use super::headers::HeaderBuilder;
 use crate::xml::EventWriter;
 
-pub struct Client<HB: HeaderBuilder> {
+pub struct SoapClient<HB: HeaderBuilder> {
     pub header: HB,
 }
 
-impl<HB: HeaderBuilder> Client<HB> {
+impl<HB: HeaderBuilder> SoapClient<HB> {
     pub fn build<BF>(&self, body_builder: BF) -> String
     where
         BF: Fn(&mut EventWriter),

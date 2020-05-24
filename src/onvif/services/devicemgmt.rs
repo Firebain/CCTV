@@ -1,6 +1,4 @@
-use crate::soap::headers::UsernameToken;
-use crate::soap::Client;
-use crate::soap::Envelope;
+use crate::soap::{headers::UsernameToken, Envelope, SoapClient};
 
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -31,11 +29,11 @@ pub struct Service {
 
 pub struct Devicemgmt<'a> {
     xaddr: &'a str,
-    wsse_client: &'a Client<UsernameToken>,
+    wsse_client: &'a SoapClient<UsernameToken>,
 }
 
 impl<'a> Devicemgmt<'a> {
-    pub fn new(xaddr: &'a str, wsse_client: &'a Client<UsernameToken>) -> Self {
+    pub fn new(xaddr: &'a str, wsse_client: &'a SoapClient<UsernameToken>) -> Self {
         Self { xaddr, wsse_client }
     }
 

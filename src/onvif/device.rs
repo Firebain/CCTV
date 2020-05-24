@@ -1,15 +1,15 @@
 use super::services::Devicemgmt;
 use super::services::Media;
-use crate::soap::{headers::UsernameToken, Client};
+use crate::soap::{headers::UsernameToken, SoapClient};
 
 pub struct OnvifDevice {
     xaddr: String,
-    wsse_client: Client<UsernameToken>,
+    wsse_client: SoapClient<UsernameToken>,
 }
 
 impl OnvifDevice {
     pub fn new(xaddr: String, username: String, password: String) -> Self {
-        let wsse_client = Client {
+        let wsse_client = SoapClient {
             header: UsernameToken::new(username, password),
         };
 
