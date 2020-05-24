@@ -1,12 +1,14 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
-use uuid::Uuid;
-use xml::reader::{EventReader, Result, XmlEvent};
 
-use super::soap::headers::Probe;
-use super::soap::Client;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::soap::headers::Probe;
+use crate::soap::Client;
+use crate::soap::Envelope;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
 
@@ -14,51 +16,66 @@ const DEVICE_TYPES: [&str; 3] = ["NetworkVideoTransmitter", "Device", "NetworkVi
 const READ_TIMEOUT: u64 = 300;
 const RETRY_TIMES: usize = 3;
 
-#[derive(Debug)]
+#[derive(Deserialize)]
+struct EndpointReference {
+    #[serde(rename = "Address")]
+    address: String,
+}
+
+#[derive(Deserialize)]
+struct RawProbeMatch {
+    #[serde(rename = "XAddrs")]
+    xaddrs: String,
+    #[serde(rename = "Scopes")]
+    scopes: String,
+    #[serde(rename = "EndpointReference")]
+    endpoint_reference: EndpointReference,
+}
+
+#[derive(Deserialize)]
+struct ProbeMatchesContainer {
+    #[serde(rename = "ProbeMatch")]
+    probe_matches: Vec<RawProbeMatch>,
+}
+
+#[derive(Deserialize)]
+struct DiscoveryBody {
+    #[serde(rename = "ProbeMatches")]
+    probe_matches_container: ProbeMatchesContainer,
+}
+
+#[derive(Hash, Eq, PartialEq, Debug, Serialize)]
 pub struct ProbeMatch {
     name: String,
+    #[serde(skip)]
+    id: String,
     xaddrs: Vec<String>,
 }
 
-struct ProbeMatchBuilder {
-    urn: Option<String>,
-    name: Option<String>,
-    xaddrs: Option<Vec<String>>,
-}
+impl From<RawProbeMatch> for ProbeMatch {
+    fn from(raw_probe_match: RawProbeMatch) -> Self {
+        let id = raw_probe_match.endpoint_reference.address[9..].to_string();
 
-impl ProbeMatchBuilder {
-    fn new() -> Self {
-        Self {
-            urn: None,
-            name: None,
-            xaddrs: None,
-        }
-    }
+        let name = raw_probe_match
+            .scopes
+            .split(' ')
+            .find(|scope| scope.starts_with("onvif://www.onvif.org/name"))
+            .unwrap()
+            .split('/')
+            .last()
+            .unwrap()
+            .to_string();
 
-    fn urn(&mut self, urn: String) {
-        self.urn = Some(urn);
-    }
+        let xaddrs: Vec<String> = raw_probe_match
+            .xaddrs
+            .split(' ')
+            .map(|xaddr| xaddr.to_string())
+            .collect();
 
-    fn name(&mut self, name: String) {
-        self.name = Some(name);
-    }
-
-    fn xaddrs(&mut self, xaddrs: Vec<String>) {
-        self.xaddrs = Some(xaddrs);
-    }
-
-    fn build(self) -> (String, ProbeMatch) {
-        (
-            self.urn.expect("Response doesn't contains urn"),
-            ProbeMatch {
-                name: self.name.expect("Response doesn't contains name"),
-                xaddrs: self.xaddrs.expect("Response doesn't contains xaddrs"),
-            },
-        )
+        Self { name, id, xaddrs }
     }
 }
 
-#[allow(dead_code)]
 pub fn discovery() -> Vec<ProbeMatch> {
     let socket = create_socket();
 
@@ -66,27 +83,23 @@ pub fn discovery() -> Vec<ProbeMatch> {
 
     let responses = recv_all_responses(&socket);
 
-    parse_responses(responses).expect("Unexpected error while parsing responses")
+    parse_responses(responses)
 }
 
 fn create_socket() -> UdpSocket {
     let free_socket_addr = SocketAddr::from(([0, 0, 0, 0], 0));
-    let socket = UdpSocket::bind(free_socket_addr).expect("Could not bind to udp socket");
+    let socket = UdpSocket::bind(free_socket_addr).unwrap();
 
     let timeout = Duration::from_millis(READ_TIMEOUT);
-    socket
-        .set_read_timeout(Some(timeout))
-        .expect("set_read_timeout call failed");
+    socket.set_read_timeout(Some(timeout)).unwrap();
 
     socket
 }
 
 fn multicast_probe_messages(socket: &UdpSocket) {
-    let multicast_addr: SocketAddr = MULTICAST_ADDR
-        .parse()
-        .expect("Error while parsing multicast addr");
+    let multicast_addr: SocketAddr = MULTICAST_ADDR.parse().unwrap();
 
-    let messages: Vec<String> = DEVICE_TYPES
+    let messages = DEVICE_TYPES
         .iter()
         .map(|device_type| {
             let client = Client {
@@ -97,27 +110,22 @@ fn multicast_probe_messages(socket: &UdpSocket) {
                 writer
                     .new_event("d:Probe")
                     .ns("d", "http://schemas.xmlsoap.org/ws/2005/04/discovery")
-                    .write()?;
+                    .write();
 
                 writer
                     .new_event("d:Types")
                     .ns("dp0", "http://www.onvif.org/ver10/network/wsdl")
                     .content(&format!("dp0:{}", device_type))
-                    .end()
-                    .write()?;
+                    .end();
 
-                writer.end_event()?; // Probe
-
-                Ok(())
+                writer.end_event(); // Probe
             })
         })
-        .collect();
+        .collect::<Vec<String>>();
 
     for message in messages {
         for _ in 0..RETRY_TIMES {
-            socket
-                .send_to(message.as_bytes(), multicast_addr)
-                .expect("couldn't send data");
+            socket.send_to(message.as_bytes(), multicast_addr).unwrap();
         }
     }
 }
@@ -127,16 +135,16 @@ fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
     loop {
         let mut buf = [0; 65_535];
 
+        // TODO: Probably it can be async
         match socket.recv(&mut buf) {
             Ok(amt) => {
-                let string = String::from_utf8(buf[..amt].to_vec())
-                    .expect("Response contains non utf-8 characters");
+                let string = String::from_utf8(buf[..amt].to_vec()).unwrap();
 
                 responses.push(string);
             }
             Err(err) => match err.kind() {
                 ErrorKind::WouldBlock => break,
-                _ => panic!("Unexpected error while receiving new messages"),
+                _ => panic!(err),
             },
         }
     }
@@ -144,93 +152,17 @@ fn recv_all_responses(socket: &UdpSocket) -> Vec<String> {
     responses
 }
 
-fn parse_responses(responses: Vec<String>) -> Result<Vec<ProbeMatch>> {
-    let mut probe_matches = HashMap::new();
+fn parse_responses(responses: Vec<String>) -> Vec<ProbeMatch> {
+    let parsed_responses = responses
+        .into_iter()
+        .map(|response| serde_xml_rs::from_str(&response).unwrap())
+        .collect::<Vec<Envelope<DiscoveryBody>>>();
 
-    for response in responses {
-        let mut parser = EventReader::from_str(&response);
-        loop {
-            let event = parser.next()?;
+    let unique_probe_matches = parsed_responses
+        .into_iter()
+        .flat_map(|response| response.body.probe_matches_container.probe_matches)
+        .map(ProbeMatch::from)
+        .collect::<HashSet<ProbeMatch>>();
 
-            match event {
-                XmlEvent::StartElement { name, .. } => {
-                    if let "ProbeMatch" = name.local_name.as_str() {
-                        let (urn, probe_match) = parse_probe_match(&mut parser)?;
-
-                        probe_matches.insert(urn, probe_match);
-                    }
-                }
-                XmlEvent::EndDocument => break,
-                _ => {}
-            }
-        }
-    }
-
-    let probe_matches = probe_matches.into_iter().map(|(_, val)| val).collect();
-
-    Ok(probe_matches)
-}
-
-fn parse_probe_match(parser: &mut EventReader<&[u8]>) -> Result<(String, ProbeMatch)> {
-    let mut probe_match_builder = ProbeMatchBuilder::new();
-
-    loop {
-        let event = parser.next()?;
-
-        match event {
-            XmlEvent::StartElement { name, .. } => match name.local_name.as_str() {
-                "EndpointReference" => {
-                    let event = parser.next()?;
-
-                    if let XmlEvent::StartElement { name, .. } = event {
-                        if let "Address" = name.local_name.as_str() {
-                            let event = parser.next()?;
-
-                            if let XmlEvent::Characters(urn) = event {
-                                probe_match_builder.urn(urn);
-                            }
-                        }
-                    }
-                }
-                "Scopes" => {
-                    let event = parser.next()?;
-
-                    if let XmlEvent::Characters(scopes) = event {
-                        let scopes = scopes.split(' ');
-
-                        for scope in scopes {
-                            if scope.starts_with("onvif://www.onvif.org/name") {
-                                let parts: Vec<&str> = scope.split('/').collect();
-
-                                let name = parts[parts.len() - 1];
-
-                                probe_match_builder.name(name.to_string());
-                            }
-                        }
-                    }
-                }
-                "XAddrs" => {
-                    let event = parser.next()?;
-                    if let XmlEvent::Characters(xaddrs) = event {
-                        let xaddrs = xaddrs
-                            .split(' ')
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_string())
-                            .collect();
-
-                        probe_match_builder.xaddrs(xaddrs);
-                    }
-                }
-                _ => {}
-            },
-            XmlEvent::EndElement { name } => {
-                if let "ProbeMatch" = name.local_name.as_str() {
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Ok(probe_match_builder.build())
+    unique_probe_matches.into_iter().collect()
 }

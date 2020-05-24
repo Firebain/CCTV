@@ -1,8 +1,8 @@
-mod camera;
-mod discovery;
-pub mod prelude;
+mod device;
+// mod discovery;
+mod profile;
 mod services;
-mod soap;
 
-pub use camera::Camera;
-pub use discovery::discovery;
+pub use device::OnvifDevice;
+// pub use discovery::discovery;
+pub use profile::Profile;
