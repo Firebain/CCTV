@@ -1,5 +1,5 @@
 use super::client::RtspClient;
-use super::rtp::sequence::{RTPSequence, RTPSequenceError, RTPSequenceStatus};
+use super::rtp::sequence::{RTPSequence, RTPSequenceStatus};
 // use futures::stream::Stream as FuturesStream;
 use std::net::{SocketAddr, UdpSocket};
 // use std::pin::Pin;
@@ -58,7 +58,7 @@ impl RtspStream {
         let (shared_state_lock, cvar) = &*self.sync_pair;
 
         let mut shared_state = cvar
-            .wait_while(shared_state_lock.lock().unwrap(), |state| !state.showed)
+            .wait_while(shared_state_lock.lock().unwrap(), |state| state.showed)
             .unwrap();
 
         shared_state.showed = true;
@@ -66,9 +66,9 @@ impl RtspStream {
         shared_state.value.clone()
     }
 
-    pub fn stop(mut self) {
-        self.rtsp.teardown(&self.session);
-    }
+    // pub fn stop(mut self) {
+    //     self.rtsp.teardown(&self.session);
+    // }
 
     fn main_loop(socket: UdpSocket, thread_sync_pair: Arc<(Mutex<SharedState>, Condvar)>) {
         let mut rtp_sequence = RTPSequence::new();

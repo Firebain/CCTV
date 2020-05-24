@@ -14,6 +14,9 @@ use tungstenite::server::accept;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 
+use std::fs::File;
+use std::io::prelude::*;
+
 use onvif::OnvifDevice;
 
 const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
@@ -93,7 +96,7 @@ async fn main() {
         "admin1234".to_string(),
     );
 
-    let uri = camera.media().get_profiles()[0].get_stream_url();
+    let uri = camera.media().get_profiles()[1].get_stream_url();
 
     // let (sender, receiver) = mpsc::channel();
 
@@ -106,13 +109,11 @@ async fn main() {
     // thread::spawn(move || websocket_sender(users_2, receiver));
 
     let mut stream = RtspStream::start(uri);
-    let mut counter = 0;
     loop {
-        stream.next();
+        let bytes = stream.next();
 
-        println!("frame {} recived!", counter);
-
-        counter += 1;
+        let mut file = File::create("foo.jpeg").unwrap();
+        file.write_all(&bytes).unwrap();
     }
 
     // println!("{:?}", stream.next().await.unwrap());
