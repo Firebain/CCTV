@@ -1,9 +1,12 @@
 use crate::onvif;
 use crate::rtsp::RtspStream;
-use actix_web::{get, post, web, Responder};
+use actix_web::{delete, get, post, web, Responder};
+use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgba};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::Mutex;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 
 #[derive(Deserialize, Debug)]
 struct NewCamera {
@@ -22,7 +25,7 @@ struct Camera {
 }
 
 #[derive(Serialize)]
-struct CameraPool {
+pub struct CameraPool {
     cam1: Option<Camera>,
     cam2: Option<Camera>,
     cam3: Option<Camera>,
@@ -44,21 +47,97 @@ impl CameraPool {
             _ => panic!("Order must be in 1-4"),
         };
     }
+
+    fn delete(&mut self, order: i8) {
+        match order {
+            1 => self.cam1 = None,
+            2 => self.cam2 = None,
+            3 => self.cam3 = None,
+            4 => self.cam4 = None,
+            _ => panic!("Order must be in 1-4"),
+        };
+    }
 }
 
 pub struct State {
-    pool: Mutex<CameraPool>,
+    pool: Arc<Mutex<CameraPool>>,
+    channel: Arc<Mutex<mpsc::Sender<Vec<u8>>>>,
+    handler: JoinHandle<()>,
 }
 
-impl Default for State {
-    fn default() -> Self {
+impl State {
+    pub fn new(channel: mpsc::Sender<Vec<u8>>) -> Self {
+        let chan = Arc::new(Mutex::new(channel));
+
+        let pool = Arc::new(Mutex::new(CameraPool {
+            cam1: None,
+            cam2: None,
+            cam3: None,
+            cam4: None,
+        }));
+
+        let handler_chan = chan.clone();
+        let handler_pool = pool.clone();
+
+        let handler = thread::spawn(move || Self::main_loop(handler_chan, handler_pool));
+
         Self {
-            pool: Mutex::new(CameraPool {
-                cam1: None,
-                cam2: None,
-                cam3: None,
-                cam4: None,
-            }),
+            pool,
+            handler,
+            channel: chan,
+        }
+    }
+
+    pub fn main_loop(channel: Arc<Mutex<mpsc::Sender<Vec<u8>>>>, pool: Arc<Mutex<CameraPool>>) {
+        loop {
+            let (bytes1, bytes2, bytes3, bytes4) = {
+                let mut pool_lock = pool.lock().unwrap();
+
+                (
+                    pool_lock.cam1.as_mut().map(|cam| cam.stream.next()),
+                    pool_lock.cam2.as_mut().map(|cam| cam.stream.next()),
+                    pool_lock.cam3.as_mut().map(|cam| cam.stream.next()),
+                    pool_lock.cam4.as_mut().map(|cam| cam.stream.next()),
+                )
+            };
+
+            let img1 = bytes1.map(|bytes| image::load_from_memory(&bytes).unwrap());
+            let img2 = bytes2.map(|bytes| image::load_from_memory(&bytes).unwrap());
+            let img3 = bytes3.map(|bytes| image::load_from_memory(&bytes).unwrap());
+            let img4 = bytes4.map(|bytes| image::load_from_memory(&bytes).unwrap());
+
+            let dimensions = (1280, 720);
+            // let dimensions1 = img1.dimensions();
+            // let dimensions2 = img2.dimensions();
+            // let dimensions3 = img3.dimensions();
+            // let dimensions4 = img4.dimensions();
+
+            // TODO: Не очень быстрый и динамичный вариант
+            let mut image =
+                ImageBuffer::<Rgba<u8>, Vec<u8>>::new(dimensions.0 * 2, dimensions.1 * 2);
+
+            if let Some(img) = img1 {
+                image.copy_from(&img, 0, 0).unwrap();
+            }
+            if let Some(img) = img2 {
+                image.copy_from(&img, dimensions.0, 0).unwrap();
+            }
+            if let Some(img) = img3 {
+                image.copy_from(&img, 0, dimensions.1).unwrap();
+            }
+            if let Some(img) = img4 {
+                image.copy_from(&img, dimensions.0, dimensions.1).unwrap();
+            }
+
+            let mut bytes = Vec::new();
+
+            DynamicImage::ImageRgba8(image.clone())
+                .write_to(&mut bytes, ImageFormat::Jpeg)
+                .unwrap();
+
+            let chan = channel.lock().unwrap();
+
+            chan.send(bytes).unwrap();
         }
     }
 }
@@ -84,7 +163,7 @@ async fn all(state: web::Data<State>) -> impl Responder {
     web::Json(cameras)
 }
 
-#[post("/cameras/add")]
+#[post("/cameras")]
 async fn add(json: web::Json<NewCamera>, state: web::Data<State>) -> impl Responder {
     let data = json.into_inner();
 
@@ -107,6 +186,22 @@ async fn add(json: web::Json<NewCamera>, state: web::Data<State>) -> impl Respon
     "ok"
 }
 
+#[delete("/cameras/{id}")]
+async fn delete(path: web::Path<(i8,)>, state: web::Data<State>) -> impl Responder {
+    if path.0 <= 0 || path.0 > 4 {
+        return "Order must be in 1-4";
+    }
+
+    let mut pool = state.pool.lock().unwrap();
+
+    pool.delete(path.0);
+
+    "ok"
+}
+
 pub fn config(cfg: &mut web::ServiceConfig) {
-    cfg.service(discovery).service(all).service(add);
+    cfg.service(discovery)
+        .service(all)
+        .service(add)
+        .service(delete);
 }

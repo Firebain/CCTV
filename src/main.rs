@@ -18,32 +18,32 @@ const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
 use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgba};
 use std::sync::mpsc;
 
-// fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
-//     let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
+    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
 
-//     for stream in server.incoming() {
-//         println!("new user!");
+    for stream in server.incoming() {
+        println!("new user!");
 
-//         let mut users = users.lock().unwrap();
+        let mut users = users.lock().unwrap();
 
-//         users.push(accept(stream.unwrap()).unwrap());
-//     }
-// }
+        users.push(accept(stream.unwrap()).unwrap());
+    }
+}
 
-// fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Receiver<Vec<u8>>) {
-//     println!("sending image started");
-//     loop {
-//         let image = match rx.recv() {
-//             Ok(image) => image,
-//             Err(err) => panic!(format!("{}", err)),
-//         };
-//         let mut users = users.lock().unwrap();
+fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Receiver<Vec<u8>>) {
+    println!("sending image started");
+    loop {
+        let image = match rx.recv() {
+            Ok(image) => image,
+            Err(err) => panic!(format!("{}", err)),
+        };
+        let mut users = users.lock().unwrap();
 
-//         for user in (*users).iter_mut() {
-//             user.write_message(Message::Binary(image.clone())).unwrap();
-//         }
-//     }
-// }
+        for user in (*users).iter_mut() {
+            user.write_message(Message::Binary(image.clone())).unwrap();
+        }
+    }
+}
 
 // fn concat_streams(
 //     stream1: &mut RtspStream,
@@ -89,22 +89,23 @@ use actix_web::{web::Data, App, HttpServer};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    let state = Data::new(State::default());
+    let (sender, receiver) = mpsc::channel();
+
+    let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let users_1 = Arc::clone(&users);
+    let users_2 = Arc::clone(&users);
+
+    thread::spawn(move || websocket_connections(users_1));
+
+    thread::spawn(move || websocket_sender(users_2, receiver));
+
+    let state = Data::new(State::new(sender));
 
     HttpServer::new(move || App::new().app_data(state.clone()).configure(config))
         .bind("127.0.0.1:8080")?
         .run()
         .await
-
-    // let (sender, receiver) = mpsc::channel();
-
-    // let users: Arc<Mutex<Vec<WebSocket<TcpStream>>>> = Arc::new(Mutex::new(Vec::new()));
-    // let users_1 = Arc::clone(&users);
-    // let users_2 = Arc::clone(&users);
-
-    // thread::spawn(move || websocket_connections(users_1));
-
-    // thread::spawn(move || websocket_sender(users_2, receiver));
 
     // let mut stream1 = RtspStream::start(uri.clone());
     // let mut stream2 = RtspStream::start(uri.clone());
