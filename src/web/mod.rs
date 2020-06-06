@@ -1,12 +1,12 @@
 use crate::onvif;
 use crate::rtsp::RtspStream;
 use actix_web::{delete, get, post, web, Responder};
-use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgba};
+use image::{DynamicImage, GenericImage, ImageBuffer, ImageFormat, Rgba};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 #[derive(Deserialize, Debug)]
 struct NewCamera {
@@ -61,14 +61,10 @@ impl CameraPool {
 
 pub struct State {
     pool: Arc<Mutex<CameraPool>>,
-    channel: Arc<Mutex<mpsc::Sender<Vec<u8>>>>,
-    handler: JoinHandle<()>,
 }
 
 impl State {
     pub fn new(channel: mpsc::Sender<Vec<u8>>) -> Self {
-        let chan = Arc::new(Mutex::new(channel));
-
         let pool = Arc::new(Mutex::new(CameraPool {
             cam1: None,
             cam2: None,
@@ -76,19 +72,14 @@ impl State {
             cam4: None,
         }));
 
-        let handler_chan = chan.clone();
         let handler_pool = pool.clone();
 
-        let handler = thread::spawn(move || Self::main_loop(handler_chan, handler_pool));
+        thread::spawn(move || Self::main_loop(channel, handler_pool));
 
-        Self {
-            pool,
-            handler,
-            channel: chan,
-        }
+        Self { pool }
     }
 
-    pub fn main_loop(channel: Arc<Mutex<mpsc::Sender<Vec<u8>>>>, pool: Arc<Mutex<CameraPool>>) {
+    pub fn main_loop(channel: mpsc::Sender<Vec<u8>>, pool: Arc<Mutex<CameraPool>>) {
         loop {
             let (bytes1, bytes2, bytes3, bytes4) = {
                 let mut pool_lock = pool.lock().unwrap();
@@ -135,9 +126,7 @@ impl State {
                 .write_to(&mut bytes, ImageFormat::Jpeg)
                 .unwrap();
 
-            let chan = channel.lock().unwrap();
-
-            chan.send(bytes).unwrap();
+            channel.send(bytes).unwrap();
         }
     }
 }

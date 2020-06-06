@@ -13,9 +13,6 @@ use tungstenite::server::accept;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 
-const XADDR: &str = "http://192.168.1.88:2000/onvif/device_service";
-
-use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageFormat, Rgba};
 use std::sync::mpsc;
 
 fn websocket_connections(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
@@ -44,46 +41,6 @@ fn websocket_sender(users: Arc<Mutex<Vec<WebSocket<TcpStream>>>>, rx: mpsc::Rece
         }
     }
 }
-
-// fn concat_streams(
-//     stream1: &mut RtspStream,
-//     stream2: &mut RtspStream,
-//     stream3: &mut RtspStream,
-//     stream4: &mut RtspStream,
-// ) -> Vec<u8> {
-//     let bytes1 = stream1.next();
-//     let bytes2 = stream2.next();
-//     let bytes3 = stream3.next();
-//     let bytes4 = stream4.next();
-
-//     let img1 = image::load_from_memory(&bytes1).unwrap();
-//     let img2 = image::load_from_memory(&bytes2).unwrap();
-//     let img3 = image::load_from_memory(&bytes3).unwrap();
-//     let img4 = image::load_from_memory(&bytes4).unwrap();
-
-//     let dimensions1 = img1.dimensions();
-//     // let dimensions2 = img2.dimensions();
-//     // let dimensions3 = img3.dimensions();
-//     // let dimensions4 = img4.dimensions();
-
-//     // TODO: Не очень быстрый и динамичный вариант
-//     let mut image = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(dimensions1.0 * 2, dimensions1.1 * 2);
-
-//     image.copy_from(&img1, 0, 0).unwrap();
-//     image.copy_from(&img2, dimensions1.0, 0).unwrap();
-//     image.copy_from(&img3, 0, dimensions1.1).unwrap();
-//     image
-//         .copy_from(&img4, dimensions1.0, dimensions1.1)
-//         .unwrap();
-
-//     let mut bytes = Vec::new();
-
-//     DynamicImage::ImageRgba8(image.clone())
-//         .write_to(&mut bytes, ImageFormat::Jpeg)
-//         .unwrap();
-
-//     bytes
-// }
 
 use actix_web::{web::Data, App, HttpServer};
 
