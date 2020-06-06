@@ -93,7 +93,9 @@ impl RtspStream {
                         cvar.notify_one();
                     }
                 }
-                Err(err) => println!("{}", err),
+                Err(_err) => {
+                    // println!("{}", _err)
+                }
             }
         }
     }
@@ -101,6 +103,8 @@ impl RtspStream {
 
 impl Drop for RtspStream {
     fn drop(&mut self) {
+        println!("Stream ended");
+
         self.rtsp.teardown(&self.session);
     }
 }

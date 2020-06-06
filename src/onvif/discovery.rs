@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::soap::headers::Probe;
-use crate::soap::Client;
 use crate::soap::Envelope;
+use crate::soap::SoapClient;
 
 const MULTICAST_ADDR: &str = "239.255.255.250:3702";
 
@@ -102,7 +102,7 @@ fn multicast_probe_messages(socket: &UdpSocket) {
     let messages = DEVICE_TYPES
         .iter()
         .map(|device_type| {
-            let client = Client {
+            let client = SoapClient {
                 header: Probe::new(Uuid::new_v4()),
             };
 
